@@ -1,0 +1,128 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+
+  }
+  
+  html {
+    font-size: 10px;
+  }
+  
+  body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #556B2F;
+  }
+  
+  header, main {
+    text-align: center;
+  }
+  
+  header {
+    margin-top: 150px;
+  }
+  
+  header h1 {
+    font-family: 'Tilt Prism', cursive;
+    margin: 100px;
+    color: #cf361bb4;
+    font-size: 150px;
+    
+  }
+  
+  main {
+    margin-top: 80px;
+  }
+
+  img{
+    display: inline-block;
+    height: 400px;
+    width: 400px;
+  }
+
+
+  .buttons{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: row-reverse;
+  }
+  
+
+  .buttons a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 34px;
+    margin: 30px auto;
+    height: 75px;
+    width: 170px;
+    border: 5px #05802a solid;
+    border-radius: 20px ;
+    text-transform: uppercase;
+    text-decoration: none;
+    background-color: #3be666;
+    color: #060007;
+    transition: .1s;
+    font-weight: 600;
+    
+  }
+  
+  .buttons a:hover {
+    box-shadow: 0 0 5px 3px #1ac9ac;
+    color: #1e99be;
+  }
+
+  section {
+    margin: auto;
+    margin-top: 40px;
+    max-width: 1440px;
+  }
+
+  h2{
+    text-align: center;
+    color: rgb(154, 172, 0);
+    font-size: 34px;
+    margin: 20px;
+  }
+
+.back{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 34px;
+    margin: 30px auto;
+    height: 65px;
+    width: 150px;
+    border: 5px #5F9BD1 solid;
+    border-radius: 20px ;
+    background-color: #3be666;
+    color: #5e5b41;
+    transition: .1s;
+    font-weight: 700;
+}
+.back:hover{
+  background-color: #1ac9ac;
+  border: 3px solid greenyellow;
+  transition: 1s;
+}
+.back a{
+  color:  rgb(20, 153, 177) ;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.back a:hover{
+  color: #bf156a;
+  transition: 1s;
+}
+
+.normal {
+    font-size: 24px;
+    
+}
+
+  .link {
+    text-decoration: none;
+    color: #bf156a;
+    font-size: 24px;
+  }
