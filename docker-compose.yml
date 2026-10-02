@@ -1,0 +1,42 @@
+# VPS deployment: Caddy terminates TLS (automatic Let's Encrypt) and proxies HTTP + WebSockets.
+# 1. point your domain's A/AAAA record at the VPS   2. cp .env.example .env and set DOMAIN
+# 3. docker compose up -d --build
+services:
+  casino:
+    build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: https://${DOMAIN:?set DOMAIN in .env}
+      TRUST_PROXY: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_PLAYERS_PER_ROOM: ${MAX_PLAYERS_PER_ROOM:-0}
+      MAX_ROOMS: ${MAX_ROOMS:-200}
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [casino]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

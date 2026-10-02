@@ -1,0 +1,9 @@
+# Local production-like run: docker compose -f compose.local.yml up --build → http://localhost:3000
+services:
+  casino:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      LOG_LEVEL: info
+    restart: unless-stopped
