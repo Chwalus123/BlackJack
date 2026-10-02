@@ -61,6 +61,10 @@ export const en: Messages = {
   'settings.motion.system': 'Follow system',
   'settings.motion.on': 'On',
   'settings.motion.off': 'Off',
+  'settings.quality': 'Graphics quality',
+  'settings.quality.auto': 'Automatic',
+  'settings.quality.high': 'High',
+  'settings.quality.low': 'Battery saver',
   'settings.on': 'On',
   'settings.off': 'Off',
 

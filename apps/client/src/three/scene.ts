@@ -74,7 +74,7 @@ export class TableScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
     this.renderer.shadowMap.enabled = quality === 'high';
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     this.renderer.domElement.style.display = 'block';
     this.renderer.domElement.style.width = '100%';
@@ -113,7 +113,7 @@ export class TableScene {
     this.table = buildTable(kind, felt, quality);
     this.scene.add(this.table.group);
 
-    const atlas = buildCardAtlas(quality === 'high' ? 240 : 140);
+    const atlas = buildCardAtlas(quality === 'high' ? 256 : 192);
     this.cards = new CardLayer(atlas, this.tweens, this.renderer.capabilities.getMaxAnisotropy());
     this.scene.add(this.cards.group);
     this.chips = new ChipLayer(this.tweens, quality);
@@ -177,10 +177,16 @@ export class TableScene {
 
   private loop = (now: number) => {
     if (this.disposed) return;
-    const dt = Math.min(0.1, (now - this.last) / 1000);
+    const elapsed = Math.max(0, now - this.last);
     this.last = now;
-    this.tweens.tick(dt * 1000);
-    this.dealer.update(dt);
+    // Game timing follows the wall clock even on slow devices; the dealer rig steps in small slices.
+    this.tweens.tick(Math.min(500, elapsed));
+    let rest = Math.min(0.5, elapsed / 1000);
+    while (rest > 0) {
+      const dt = Math.min(0.05, rest);
+      this.dealer.update(dt);
+      rest -= dt;
+    }
     this.renderer.render(this.scene, this.camera);
     for (const f of this.frameListeners) f();
     const busy = this.tweens.busy || now < this.idleUntil;
@@ -197,19 +203,24 @@ export class TableScene {
     this.camera.aspect = aspect;
     // A seat behind the players, high enough to see the dealer chest-up and every betting spot.
     const blackjack = this.kind === 'blackjack';
-    const target = blackjack ? new THREE.Vector3(0, 0.28, -0.25) : new THREE.Vector3(0, 0.22, -0.12);
-    const eye = blackjack ? new THREE.Vector3(0, 0.78, 1.55) : new THREE.Vector3(0, 1.0, 1.75);
+    const target = blackjack ? new THREE.Vector3(0, 0.27, -0.04) : new THREE.Vector3(0, 0.33, -0.08);
+    const eye = blackjack ? new THREE.Vector3(0, 1.1, 2.02) : new THREE.Vector3(0, 1.42, 2.4);
     const dir = eye.clone().sub(target);
     let dist = dir.length();
     dir.normalize();
-    if (aspect < 1.6) dist *= Math.min(2.6, Math.pow(1.6 / aspect, 0.8));
-    if (aspect < 1) {
-      // Portrait: look down more steeply so the table fills the tall screen.
-      const pitch = Math.atan2(dir.y, dir.z) + THREE.MathUtils.degToRad(16);
+    const portrait = aspect < 1;
+    const vfov = portrait ? 62 : 42;
+    if (portrait) {
+      // Portrait phones: look down more steeply and fit the table's width to the screen.
+      const pitch = Math.atan2(dir.y, dir.z) + THREE.MathUtils.degToRad(14);
       dir.set(0, Math.sin(pitch), Math.cos(pitch));
-      target.y -= 0.12;
+      target.y -= 0.1;
+      target.z += 0.06;
     }
-    this.camera.fov = aspect < 1 ? 50 : 42;
+    const halfWidth = blackjack ? 0.8 : 0.98;
+    const hHalf = Math.atan(Math.tan(THREE.MathUtils.degToRad(vfov / 2)) * aspect);
+    dist = Math.max(dist, (halfWidth / Math.tan(hHalf)) * 1.04);
+    this.camera.fov = vfov;
     this.camera.position.copy(target).addScaledVector(dir, dist);
     this.camera.lookAt(target);
     // Shift the view so the table centre sits in the area not covered by HUD docks.

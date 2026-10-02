@@ -63,6 +63,7 @@ export class LocalSession<V, E, L extends { dId: number }> implements GameSessio
       if (!r.ok) console.warn('seat failed', s, r.error);
     }
     this.humanSeat = this.findHuman();
+    this.started = true;
     this.host.start();
     this.emit({ kind: 'snapshot', view: this.view(), legal: this.legal(), you: this.humanSeat });
   }
@@ -97,8 +98,12 @@ export class LocalSession<V, E, L extends { dId: number }> implements GameSessio
     for (const l of this.listeners) l(m);
   }
 
+  private started = false;
+
   subscribe(fn: (m: SessionMessage<V, E, L>) => void): () => void {
     this.listeners.add(fn);
+    // A late subscriber (the 3D table mounts after the session starts) gets the current state at once.
+    if (this.started) fn({ kind: 'snapshot', view: this.view(), legal: this.legal(), you: this.humanSeat });
     return () => this.listeners.delete(fn);
   }
 

@@ -352,6 +352,11 @@ export class HoldemDirector {
     return this.scene.tweens.wait(ms);
   }
 
+  /** Never let a gesture that fails to resolve stall the table: give up after `ms` of scene time. */
+  private guard(p: Promise<unknown>, ms: number): Promise<void> {
+    return Promise.race([p.then(() => undefined), this.wait(ms)]);
+  }
+
   private async foldCards(seat: SeatId): Promise<void> {
     const s = this.seat(seat);
     if (!s) return;
@@ -393,9 +398,9 @@ export class HoldemDirector {
         return;
       }
       case 'Shuffle': {
-        const g = sc.dealer.shuffle({ durationMs: PACING.reshuffle / 2 });
-        this.commitAfter(g.done, ev, reveals);
-        await g.done;
+        const done = this.guard(sc.dealer.shuffle({ durationMs: PACING.reshuffle / 2 }).done, PACING.reshuffle);
+        this.commitAfter(done, ev, reveals);
+        await done;
         return;
       }
       case 'CardDealt': {

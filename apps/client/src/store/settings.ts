@@ -8,9 +8,10 @@ export interface Settings {
   sound: boolean;
   speed: Speed;
   reducedMotion: 'system' | 'on' | 'off';
+  quality: 'auto' | 'high' | 'low';
 }
 
-const DEFAULTS: Settings = { sound: true, speed: 1, reducedMotion: 'system' };
+const DEFAULTS: Settings = { sound: true, speed: 1, reducedMotion: 'system', quality: 'auto' };
 
 export const settings = signal<Settings>({ ...DEFAULTS, ...loadJSON<Partial<Settings>>('settings', {}) });
 

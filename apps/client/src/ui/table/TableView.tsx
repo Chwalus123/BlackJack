@@ -59,7 +59,8 @@ export function TableView({
     let disposed = false;
     let cleanup: (() => void) | null = null;
     const store = new TableStore<any, any>();
-    void TableScene.create(game, host.current!, { locale: locale.value, felt: feltText(game, locale.value) })
+    const q = settings.value.quality;
+    void TableScene.create(game, host.current!, { locale: locale.value, felt: feltText(game, locale.value), quality: q === 'auto' ? undefined : q })
       .then((scene) => {
         if (disposed) {
           scene.dispose();
@@ -104,15 +105,18 @@ export function TableView({
           effect(() => scene.setReducedMotion(reducedMotion.value)),
           scene.onFrame(() => undefined),
         );
-        const ro = new ResizeObserver(() => anchors.value++);
+        const ro = new ResizeObserver(() => (anchors.value = anchors.peek() + 1));
         ro.observe(host.current!);
         unsubs.push(() => ro.disconnect());
-        unsubs.push(effect(() => {
-          void store.layoutVersion.value;
-          anchors.value++;
-        }));
+        unsubs.push(
+          effect(() => {
+            void store.layoutVersion.value;
+            anchors.value = anchors.peek() + 1;
+          }),
+        );
         scene.start();
         setCtx(c);
+        if (import.meta.env.DEV) (window as unknown as { __casino?: unknown }).__casino = c;
         cleanup = () => {
           for (const u of unsubs) u();
           scene.dispose();
@@ -127,6 +131,24 @@ export function TableView({
       cleanup?.();
     };
   }, [game, session]);
+
+  // Keep the table centred in the area not covered by the top bar and the bottom dock.
+  useEffect(() => {
+    if (!ctx || !host.current) return;
+    const root = host.current.parentElement!;
+    const measure = () => {
+      const dock = root.querySelector<HTMLElement>('.dock');
+      const bottom = dock ? Math.min(dock.offsetHeight, root.clientHeight * 0.45) : 0;
+      ctx.scene.setInsets({ top: 48, bottom, left: 0, right: 0 });
+      anchors.value = anchors.peek() + 1;
+    };
+    const ro = new ResizeObserver(measure);
+    const dock = root.querySelector<HTMLElement>('.dock');
+    if (dock) ro.observe(dock);
+    ro.observe(root);
+    measure();
+    return () => ro.disconnect();
+  }, [ctx]);
 
   // Keep the dealer badge text and felt print in the chosen language.
   useEffect(() => {

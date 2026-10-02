@@ -93,12 +93,12 @@ export function neutralHand(h: HandName, deckInHand: boolean): HandPose {
     const rot = handQuat('R', new THREE.Vector3(0.25, 0, 1), 0.6, 0.08);
     return { pos: new THREE.Vector3(-0.15, 0.065, 0.25), rot, fingers: fingerPose('rest') };
   }
-  const rot = handQuat(h, new THREE.Vector3(-0.18 * s, 0, 1), 0.62, 0.12);
-  return { pos: new THREE.Vector3(0.27 * s, 0.048, 0.215), rot, fingers: fingerPose('rest') };
+  const rot = handQuat(h, new THREE.Vector3(-0.28 * s, 0, 1), 0.42, 0.06);
+  return { pos: new THREE.Vector3(0.205 * s, 0.055, 0.3), rot, fingers: fingerPose('rest') };
 }
 
 /** Where the Hold'em deck sits in the left hand at rest (rig space). */
 export const DECK_HOLD = new THREE.Vector3(0.19, 0.095, 0.265);
 
 /** Torso posture (lean, side, twist) at rest. */
-export const NEUTRAL_BODY = new THREE.Vector3(0.08, 0, 0);
+export const NEUTRAL_BODY = new THREE.Vector3(0.12, 0, 0);

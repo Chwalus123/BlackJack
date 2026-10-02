@@ -5,15 +5,14 @@ import { HE_POT, heBetPos, heHolePos, heStackPos, heBoardPos } from '../../three
 import type { TableContext } from '../table/TableView';
 import type { HoldemDirector } from '../../three/heDirector';
 import { TimerBar } from '../table/Timer';
-import { Icon, SuitIcon } from '../deco';
+import { Icon } from '../deco';
+import { BigCard } from '../cards/BigCard';
 import { toast } from '../chrome';
 
 type V = he.HView;
 type L = he.HLegal;
 type Act = Extract<L, { kind: 'act' }>;
 
-const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-const SUITS = ['c', 'd', 'h', 's'] as const;
 
 export function handName(value: number | null): string {
   if (value == null) return '';
@@ -23,19 +22,6 @@ export function handName(value: number | null): string {
   const key = `hand.${d.cat}` as 'hand.pair';
   const high = d.cat === 'highCard' || d.cat === 'straight' || d.cat === 'flush' || d.cat === 'straightFlush';
   return t(key, { r1: high ? r1(d.ranks[0]) : r(d.ranks[0]), r2: d.cat === 'fullHouse' ? r(d.ranks[1]) : r(d.ranks[1]) });
-}
-
-function BigCard({ card }: { card: number | null }) {
-  if (card == null) return <div class="big-card back" aria-hidden="true" />;
-  const rank = RANKS[(card >> 2)]!;
-  const s = card & 3;
-  const red = s === 1 || s === 2;
-  return (
-    <div class={`big-card ${red ? 'red' : ''}`} aria-label={`${rank}${SUITS[s]}`}>
-      <span>{rank}</span>
-      <SuitIcon suit={SUITS[s]!} size={22} />
-    </div>
-  );
 }
 
 export function HoldemHud({ ctx, director }: { ctx: TableContext; director: HoldemDirector }) {

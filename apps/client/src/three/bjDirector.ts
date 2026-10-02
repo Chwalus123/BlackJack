@@ -19,8 +19,9 @@ const DEG = Math.PI / 180;
  * movements. Events commit to the presented view in order, each when its animation lands.
  */
 export class BlackjackDirector {
-  private queue: E[] = [];
-  private running = false;
+  queue: E[] = [];
+  running = false;
+  current: string | null = null;
   private presented: V | null = null;
   private chain: Promise<void> = Promise.resolve();
   private pendingMine = 0;
@@ -334,6 +335,7 @@ export class BlackjackDirector {
         const ev = this.queue.shift()!;
         const speed = this.effectiveSpeed();
         this.scene.setSpeed(speed);
+        this.current = ev.e;
         try {
           await this.play(ev);
         } catch (err) {
@@ -355,6 +357,11 @@ export class BlackjackDirector {
 
   private wait(ms: number): Promise<void> {
     return this.scene.tweens.wait(ms);
+  }
+
+  /** Never let a gesture that fails to resolve stall the table: give up after `ms` of scene time. */
+  private guard(p: Promise<unknown>, ms: number): Promise<void> {
+    return Promise.race([p.then(() => undefined), this.wait(ms)]);
   }
 
   private async play(ev: E): Promise<void> {
@@ -382,9 +389,9 @@ export class BlackjackDirector {
         return;
       }
       case 'Shuffle': {
-        const g = sc.dealer.shuffle({ durationMs: PACING.reshuffle });
-        this.commitAfter(g.done, ev);
-        await g.done;
+        const done = this.guard(sc.dealer.shuffle({ durationMs: PACING.reshuffle }).done, PACING.reshuffle * 1.5);
+        this.commitAfter(done, ev);
+        await done;
         return;
       }
       case 'CardDealt': {
@@ -442,10 +449,10 @@ export class BlackjackDirector {
         await this.chain;
         const hole = this.presented?.dealer.cards[1];
         const at = vec(bjDealerCardPos(1));
-        const g = sc.dealer.peek(at, { durationMs: PACING.peek });
+        const g = this.guard(sc.dealer.peek(at, { durationMs: PACING.peek }).done, PACING.peek * 1.5);
         const p = hole ? sc.cards.peek(hole.cid, PACING.peek * 0.8) : Promise.resolve();
-        this.commitAfter(Promise.all([g.done, p]), ev);
-        await Promise.all([g.done, p]);
+        this.commitAfter(Promise.all([g, p]), ev);
+        await Promise.all([g, p]);
         return;
       }
       case 'HandSplit': {

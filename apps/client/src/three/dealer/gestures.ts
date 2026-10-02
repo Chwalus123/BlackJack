@@ -328,7 +328,13 @@ export function buildDealFromShoe(shoeW: THREE.Vector3, targetW: THREE.Vector3, 
       { h: 'L', grip: Mwait, q: pressQ },
       { h: 'R', grip: Rwait, q: takeQ },
     ], 0.42, red);
-    body.at(0.12 * D, pDraw).at(tH, pTake).at(tRel, pRel).at(D, pWait);
+    // A croupier's torso stays calm: hold one working lean through the card and let only the turn travel.
+    const lean = Math.max(pDraw.x, pTake.x, pRel.x);
+    body
+      .at(0.12 * D, v(lean, pDraw.y, pDraw.z))
+      .at(tH, v(lean, (pTake.y + pRel.y) / 2, (pTake.z + pRel.z) / 2))
+      .at(tRel, v(lean, pRel.y, pRel.z))
+      .at(D, v(Math.max(pWait.x, lean * 0.92), pWait.y, pWait.z));
 
     const events = [
       {

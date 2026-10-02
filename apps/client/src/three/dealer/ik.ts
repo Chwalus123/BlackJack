@@ -206,7 +206,7 @@ export interface Posture {
   twist: number;
 }
 
-export const NEUTRAL_POSTURE: Posture = { lean: 0.06, side: 0, twist: 0 };
+export const NEUTRAL_POSTURE: Posture = { lean: 0.12, side: 0, twist: 0 };
 
 export interface Frame {
   pos: Vec3;

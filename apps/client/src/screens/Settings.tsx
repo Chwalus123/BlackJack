@@ -44,6 +44,16 @@ export function Settings() {
           </div>
         </div>
         <div class="field">
+          <span class="label">{t('settings.quality')}</span>
+          <div class="segmented" role="group">
+            {(['auto', 'high', 'low'] as const).map((q) => (
+              <button type="button" aria-pressed={s.quality === q} onClick={() => updateSettings({ quality: q })}>
+                {t(`settings.quality.${q}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div class="field">
           <span class="label">{t('settings.sound')}</span>
           <div class="segmented" role="group">
             {[true, false].map((on) => (

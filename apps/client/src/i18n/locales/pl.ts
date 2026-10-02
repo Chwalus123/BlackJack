@@ -60,6 +60,10 @@ export const pl = {
   'settings.motion.system': 'Jak w systemie',
   'settings.motion.on': 'Włączony',
   'settings.motion.off': 'Wyłączony',
+  'settings.quality': 'Jakość grafiki',
+  'settings.quality.auto': 'Automatyczna',
+  'settings.quality.high': 'Wysoka',
+  'settings.quality.low': 'Oszczędna',
   'settings.on': 'Wł.',
   'settings.off': 'Wył.',
 

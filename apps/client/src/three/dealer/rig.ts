@@ -92,7 +92,7 @@ export class DealerRuntime implements DealerRig {
   private card: { who: HandName | null; prev: HandName | null; blend: number } = { who: null, prev: null, blend: 1 };
   private gestureLook: THREE.Vector3 | null = null;
   private userLook: THREE.Vector3 | null = null;
-  private readonly head = { yaw: 0, pitch: -0.1, vy: 0, vp: 0, tyaw: 0, tpitch: 0 };
+  private readonly head = { yaw: 0, pitch: -0.1, vy: 0, vp: 0, tyaw: 0, tpitch: 0, rawPitch: 0, rawYaw: 0 };
   private queue: Job[] = [];
   private active: Job | null = null;
   private clock = 0;
@@ -614,8 +614,11 @@ export class DealerRuntime implements DealerRig {
     const headPos = _v1.set(0, DIM.neck.y + DIM.head.y + DIM.headCentre, DIM.neck.z + DIM.head.z).applyQuaternion(qc).add(pc);
     const dir = _v2.copy(target).sub(headPos).applyQuaternion(_q2.copy(qc).invert());
     if (dir.lengthSq() > 1e-8) {
-      hd.tyaw = Math.max(-1.05, Math.min(1.05, Math.atan2(dir.x, dir.z)));
-      hd.tpitch = Math.max(-0.8, Math.min(0.42, Math.atan2(dir.y, Math.hypot(dir.x, dir.z))));
+      hd.rawYaw = Math.atan2(dir.x, dir.z);
+      hd.rawPitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z));
+      hd.tyaw = Math.max(-1.05, Math.min(1.05, hd.rawYaw));
+      // the head only tips so far; the eyes do the rest when looking down at the felt
+      hd.tpitch = Math.max(-0.48, Math.min(0.32, Math.atan2(dir.y, Math.hypot(dir.x, dir.z)) * 0.85));
     }
     // critically damped spring, sub-stepped for stability
     const w = this.reduced ? 13 : 8.5;
@@ -635,11 +638,11 @@ export class DealerRuntime implements DealerRig {
     const t = this.time;
     const nod = (Math.sin(t * 0.9) * 0.012 + Math.sin(t * 2.3 + 1) * 0.005) * amp;
     const tilt = Math.sin(t * 0.47 + 0.7) * 0.02 * amp;
-    m.neck.quaternion.setFromEuler(_e.set(-hd.pitch * 0.35, hd.yaw * 0.35, 0, 'YXZ'));
-    m.head.quaternion.setFromEuler(_e.set(-hd.pitch * 0.65 + nod, hd.yaw * 0.65, tilt, 'YXZ'));
+    m.neck.quaternion.setFromEuler(_e.set(-hd.pitch * 0.28, hd.yaw * 0.3, 0, 'YXZ'));
+    m.head.quaternion.setFromEuler(_e.set(-hd.pitch * 0.72 + nod, hd.yaw * 0.7, tilt, 'YXZ'));
     // eyes lead the head a little, and blink
-    const ey = Math.max(-0.0032, Math.min(0.0032, (hd.tyaw - hd.yaw) * 0.012));
-    const ep = Math.max(-0.002, Math.min(0.002, (hd.tpitch - hd.pitch) * 0.01));
+    const ey = Math.max(-0.0032, Math.min(0.0032, (hd.rawYaw - hd.yaw) * 0.012));
+    const ep = Math.max(-0.0026, Math.min(0.0016, (hd.rawPitch - hd.pitch) * 0.012));
     let lid = 1;
     if (this.blink.t >= 0) lid = 1 - 0.9 * Math.sin(Math.PI * Math.min(1, this.blink.t / 0.16));
     m.eyeL.position.copy(m.eyeRest.L).add(_v3.set(ey, ep, 0));

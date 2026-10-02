@@ -9,8 +9,9 @@ export interface V3 {
 }
 export const v3 = (x: number, y: number, z: number): V3 => ({ x, y, z });
 
-export const CARD_W = 0.0635;
-export const CARD_H = 0.0889;
+/** Cards are drawn ~30% larger than a real 63.5 × 88.9 mm card so they read well from the player's seat. */
+export const CARD_W = 0.0635 * 1.3;
+export const CARD_H = 0.0889 * 1.3;
 export const CHIP_R = 0.0195;
 export const CHIP_H = 0.0034;
 
@@ -65,8 +66,8 @@ export function bjCardPos(spot: number, hand: number, hands: number, slot: numbe
   const base = onArc(BJ_TABLE.cardRadius, deg + spread);
   const yaw = ((deg + spread) * Math.PI) / 180;
   // fan: each next card shifts toward the player's right and slightly toward the dealer
-  const dx = 0.016 * slot;
-  const dz = -0.011 * slot;
+  const dx = 0.021 * slot;
+  const dz = -0.014 * slot;
   return v3(base.x + Math.cos(yaw) * dx + Math.sin(yaw) * dz, 0.0006 * (slot + 1), base.z - Math.sin(yaw) * dx + Math.cos(yaw) * dz);
 }
 
@@ -84,7 +85,7 @@ export function bjInsurancePos(spot: number): V3 {
 }
 
 export function bjDealerCardPos(slot: number): V3 {
-  return v3(-0.04 + slot * 0.075, 0.0006 * (slot + 1), -0.14);
+  return v3(-0.05 + slot * 0.092, 0.0006 * (slot + 1), -0.15);
 }
 
 /** Kidney outline (players' arc + dealer's straight edge), as XZ points, counter-clockwise from above. */
@@ -125,7 +126,7 @@ export function heHolePos(spot: number, slot: number): V3 {
   const deg = HE_SPOT_ANGLES[spot] ?? 0;
   const p = onEllipse(HE_TABLE.spotA * 0.78, HE_TABLE.spotB * 0.72, deg);
   const yaw = (deg * Math.PI) / 180;
-  const off = (slot - 0.5) * 0.04;
+  const off = (slot - 0.5) * 0.05;
   return v3(p.x + Math.cos(yaw) * off, 0.0006 * (slot + 1), p.z - Math.sin(yaw) * off);
 }
 export function heBetPos(spot: number): V3 {
@@ -140,7 +141,7 @@ export function heButtonPos(spot: number): V3 {
   return onEllipse(HE_TABLE.spotA * 0.68, HE_TABLE.spotB * 0.62, deg, 0.002);
 }
 export function heBoardPos(slot: number): V3 {
-  return v3(-0.2 + slot * 0.1, 0.0006, -0.06);
+  return v3(-0.24 + slot * 0.12, 0.0006, -0.06);
 }
 export const HE_POT = v3(0, 0, 0.1);
 export const HE_DECK = v3(0.24, 0.07, -0.36); // in the dealer's left hand area

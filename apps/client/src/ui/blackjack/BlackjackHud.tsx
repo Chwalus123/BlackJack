@@ -5,6 +5,7 @@ import { TRAY } from '../../shared/chips';
 import { bjBetPos, bjCardPos, bjDealerCardPos, bjStackPos, BJ_TABLE, type V3 } from '../../three/layout';
 import type { TableContext } from '../table/TableView';
 import { ChipSvg } from '../chips/ChipSvg';
+import { BigCard } from '../cards/BigCard';
 import { Icon, SuitIcon } from '../deco';
 import { Countdown, TimerBar } from '../table/Timer';
 import { toast } from '../chrome';
@@ -258,6 +259,20 @@ export function BlackjackHud({ ctx }: { ctx: TableContext }) {
           {(freeBet ? pendingTotal : me?.hands.reduce((a, h) => a + h.bet, 0) ?? 0) > 0 && (
             <span>
               {t('table.bet')}: <b>{formatMoney(freeBet ? pendingTotal : me!.hands.reduce((a, h) => a + h.bet, 0))}</b>
+            </span>
+          )}
+          {me?.hands.some((h) => h.cards.length > 0) && (
+            <span class="my-hands" aria-label={t('table.you')}>
+              {me.hands.map((h) =>
+                h.cards.length ? (
+                  <span class="my-hand">
+                    {h.cards.map((c) => (
+                      <BigCard card={c.card} />
+                    ))}
+                    <b>{totalLabel(h.cards.map((c) => c.card))?.text}</b>
+                  </span>
+                ) : null,
+              )}
             </span>
           )}
           {view && (view.phase === 'betting' || view.phase === 'insurance') && view.phaseDeadline != null && (
