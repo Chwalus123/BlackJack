@@ -13,6 +13,8 @@ export interface ResultMsg {
   hand: number;
   outcome: string;
   net: number;
+  /** Hold'em: the winning hand's value when it was shown (for "wins with a flush"). */
+  value?: number | null;
 }
 
 /**

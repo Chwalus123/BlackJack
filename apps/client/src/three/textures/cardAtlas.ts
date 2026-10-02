@@ -77,7 +77,9 @@ function drawFace(ctx: CanvasRenderingContext2D, card: number, x: number, y: num
   ctx.lineWidth = 2;
   ctx.strokeStyle = '#d8ceb5';
   ctx.stroke();
-  // corner indices (both corners, the lower one rotated)
+  // Jumbo corner indices (both corners, the lower one rotated), as on casino poker decks: the rank and suit
+  // stay readable when the card is small on screen.
+  const ix0 = w * 0.15;
   for (const flip of [false, true]) {
     ctx.save();
     if (flip) {
@@ -87,16 +89,16 @@ function drawFace(ctx: CanvasRenderingContext2D, card: number, x: number, y: num
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'alphabetic';
-    const fs = label === '10' ? w * 0.2 : w * 0.24;
+    const fs = label === '10' ? w * 0.29 : w * 0.33;
     ctx.font = `800 ${fs}px ${UI}`;
     if (label === '10') {
       ctx.save();
-      ctx.translate(w * 0.135, h * 0.135);
-      ctx.scale(0.82, 1);
+      ctx.translate(ix0, h * 0.178);
+      ctx.scale(0.74, 1);
       ctx.fillText(label, 0, 0);
       ctx.restore();
-    } else ctx.fillText(label, w * 0.135, h * 0.14);
-    suit(ctx, s, w * 0.135, h * 0.205, w * 0.13);
+    } else ctx.fillText(label, ix0, h * 0.185);
+    suit(ctx, s, ix0, h * 0.268, w * 0.17);
     ctx.restore();
   }
   ctx.fillStyle = color;
@@ -123,9 +125,9 @@ function drawFace(ctx: CanvasRenderingContext2D, card: number, x: number, y: num
     ctx.fillStyle = color;
     suit(ctx, s, w / 2, h / 2, w * 0.4);
   } else {
-    // Court cards: typographic deco panel with the letter and suit emblems.
-    const px = w * 0.2;
-    const py = h * 0.15;
+    // Court cards: typographic deco panel with the letter and suit emblems (narrow enough to clear the indices).
+    const px = w * 0.3;
+    const py = h * 0.13;
     const pw = w - 2 * px;
     const ph = h - 2 * py;
     const grad = ctx.createLinearGradient(0, py, 0, py + ph);
@@ -153,8 +155,17 @@ function drawFace(ctx: CanvasRenderingContext2D, card: number, x: number, y: num
     ctx.fillStyle = color;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `800 ${w * 0.4}px ${DISPLAY}`;
-    ctx.fillText(label, w / 2, h / 2 + w * 0.02);
+    ctx.font = `800 ${w * 0.34}px ${DISPLAY}`;
+    // Fit and centre the glyph's real outline (the Q's tail reaches past its advance width) inside the panel.
+    const m = ctx.measureText(label);
+    const left = m.actualBoundingBoxLeft || m.width / 2;
+    const right = m.actualBoundingBoxRight || m.width / 2;
+    const fit = Math.min(1, (pw - 18) / (left + right));
+    ctx.save();
+    ctx.translate(w / 2, h / 2 + w * 0.02);
+    ctx.scale(fit, fit);
+    ctx.fillText(label, (left - right) / 2, 0);
+    ctx.restore();
     suit(ctx, s, w / 2, py + ph * 0.24, w * 0.12);
     suit(ctx, s, w / 2, py + ph * 0.76, w * 0.12, true);
   }

@@ -140,10 +140,16 @@ export function heButtonPos(spot: number): V3 {
   const deg = (HE_SPOT_ANGLES[spot] ?? 0) - 12;
   return onEllipse(HE_TABLE.spotA * 0.68, HE_TABLE.spotB * 0.62, deg, 0.002);
 }
+/**
+ * Community cards are drawn larger than hole cards and sit as close to the players as the dealer can still
+ * place them (the reach planner is tested over these five slots), so the board reads from every seat.
+ */
+export const HE_BOARD_SCALE = 1.3;
+export const HE_BOARD_SPACING = 0.13;
 export function heBoardPos(slot: number): V3 {
-  return v3(-0.24 + slot * 0.12, 0.0006, -0.06);
+  return v3((slot - 2) * HE_BOARD_SPACING, 0.0006, -0.02);
 }
-export const HE_POT = v3(0, 0, 0.1);
+export const HE_POT = v3(0, 0, 0.12);
 export const HE_DECK = v3(0.24, 0.07, -0.36); // in the dealer's left hand area
 export const HE_MUCK = v3(-0.3, 0.004, -0.3);
 

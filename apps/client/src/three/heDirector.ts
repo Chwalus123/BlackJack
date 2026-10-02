@@ -3,7 +3,7 @@ import { clone, he, PACING, type Account, type Reveal, type SeatId } from '@casi
 import type { TableStore } from '../store/table';
 import { sfx } from '../shared/sound';
 import type { TableScene } from './scene';
-import { HE_DECK, HE_MUCK, HE_POT, HE_SPOT_ANGLES, HE_TABLE, heBetPos, heBoardPos, heButtonPos, heHolePos, heSpotCenter, heStackPos, mapSeats, v3, type V3 } from './layout';
+import { HE_BOARD_SCALE, HE_DECK, HE_MUCK, HE_POT, HE_SPOT_ANGLES, HE_TABLE, heBetPos, heBoardPos, heButtonPos, heHolePos, heSpotCenter, heStackPos, mapSeats, v3, type V3 } from './layout';
 
 type V = he.HView;
 type E = he.HEvent;
@@ -227,7 +227,7 @@ export class HoldemDirector {
         cards.create(c.cid, face, heHolePos(spot, slot), this.yaw(spot), up);
       });
     });
-    v.board.forEach((c, slot) => cards.create(c.cid, c.card, heBoardPos(slot), 0, true));
+    v.board.forEach((c, slot) => cards.create(c.cid, c.card, heBoardPos(slot), 0, true, HE_BOARD_SCALE));
     this.placeButton(v.button, false);
     this.syncChips();
     this.scene.wake(100);
@@ -273,7 +273,7 @@ export class HoldemDirector {
         this.store.pushAnnounce(ev.key, ev.params);
         break;
       case 'PotAwarded':
-        for (const w of ev.winners) this.store.pushResult({ seat: w.seat, hand: ev.pot, outcome: 'win', net: w.amount });
+        for (const w of ev.winners) this.store.pushResult({ seat: w.seat, hand: ev.pot, outcome: 'win', net: w.amount, value: ev.value });
         if (ev.best5) for (const cid of ev.best5) this.highlight.add(cid);
         break;
       case 'HandStarted':
@@ -432,7 +432,7 @@ export class HoldemDirector {
             released = true;
             sc.cards.create(ev.cid, face, { x: from.x, y: from.y, z: from.z }, 0, false);
             const dist = Math.hypot(from.x - pos.x, from.z - pos.z);
-            void sc.cards.fly(ev.cid, pos, yaw, 200 + dist * 240, { faceUp }).then(resolve);
+            void sc.cards.fly(ev.cid, pos, yaw, 200 + dist * 240, { faceUp, scale: t.t === 'board' ? HE_BOARD_SCALE : 1 }).then(resolve);
           };
           const dur = t.t === 'hole' ? PACING.heHoleCard : t.t === 'burn' ? PACING.burn : PACING.street / 2;
           if (t.t === 'burn') sc.dealer.burn({ durationMs: dur, onRelease: (p: THREE.Vector3) => release(p) });
@@ -513,7 +513,7 @@ export class HoldemDirector {
           sc.dealer.sweep(all.map((c) => c.group.position.clone()), vec(HE_MUCK), { durationMs: PACING.sweep });
           await Promise.all(
             all.map((c) =>
-              sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, PACING.sweep * 0.6, { faceUp: false, height: 0.05 }).then(() => sc.cards.remove(c.cid)),
+              sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, PACING.sweep * 0.6, { faceUp: false, height: 0.05, scale: 1 }).then(() => sc.cards.remove(c.cid)),
             ),
           );
         }

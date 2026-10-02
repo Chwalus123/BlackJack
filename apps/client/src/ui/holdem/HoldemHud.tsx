@@ -6,12 +6,15 @@ import type { TableContext } from '../table/TableView';
 import type { HoldemDirector } from '../../three/heDirector';
 import { TimerBar } from '../table/Timer';
 import { Icon } from '../deco';
-import { BigCard } from '../cards/BigCard';
+import { BigCard, CardSlot, cardLabel } from '../cards/BigCard';
 import { toast } from '../chrome';
 
 type V = he.HView;
 type L = he.HLegal;
 type Act = Extract<L, { kind: 'act' }>;
+
+/** Phases in which a hand is being played, so the board box shows (with empty slots before the flop). */
+const HAND_PHASES = new Set<he.HPhase>(['preflop', 'flop', 'turn', 'river', 'showdown']);
 
 
 export function handName(value: number | null): string {
@@ -69,6 +72,19 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
   const results = store.results.value;
   const announce = store.announce.value;
 
+  // Community cards and the hero's cards as large 2D cards in the dock. Everything comes from the presented
+  // view, so a card appears here only once it has landed on the 3D table.
+  const board = view?.board ?? [];
+  const showBoard = !!view && (board.length > 0 || HAND_PHASES.has(view.phase));
+  const hole = me?.hole ?? [];
+  const holeKnown = hole.length === 2 && hole.every((c) => c.card != null);
+  const known = (cs: readonly { card: number | null }[]) => cs.map((c) => c.card).filter((c): c is number => c != null);
+  const heroHand = holeKnown && board.length >= 3 ? handName(he.eval7([...known(hole), ...known(board)])) : '';
+  // At showdown the winning five cards light up and the rest dim (same set the 3D table lifts).
+  const best = director.highlight;
+  const markOf = (cid: number): 'win' | 'dim' | undefined => (best.size === 0 ? undefined : best.has(cid) ? 'win' : 'dim');
+  const boardLabel = known(board).map(cardLabel).join(' ');
+
   const snap = (v: number) => {
     if (!act || !range) return v;
     const u = act.unit;
@@ -93,7 +109,7 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
 
   return (
     <>
-      <div class="anchor-layer" aria-hidden="true">
+      <div class="anchor-layer he-anchors" aria-hidden="true">
         {view?.seats.map((s, id) => {
           const spot = director.spots.get(id);
           if (!s || spot == null) return null;
@@ -167,7 +183,9 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
 
       {announce && (
         <div class="announce" key={announce.id} role="status" aria-live="polite">
-          {t(`announce.${announce.key}` as 'announce.he.flop', announceParams(view, announce.params))}
+          {announce.key === 'he.wins' && announce.params?.seat === you
+            ? t('announce.he.youWin')
+            : t(`announce.${announce.key}` as 'announce.he.flop', announceParams(view, announce.params))}
         </div>
       )}
 
@@ -176,104 +194,121 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
       </button>
       {showPlayers && view && <HoldemPlayers view={view} you={you} onClose={() => setShowPlayers(false)} />}
 
-      <div class="dock" role="region" aria-label={t('table.summary')}>
-        <div class="dock-row wallet">
-          <span>
-            {t('table.wallet')}: <b>{formatMoney(me?.stack ?? 0)}</b>
-          </span>
-          {me && me.hole.length > 0 && (
-            <span class="hole-cards" style={{ display: 'inline-flex', gap: 6 }}>
-              {me.hole.map((c) => (
-                <BigCard card={c.card} />
-              ))}
+      <div class="dock he-dock" role="region" aria-label={t('table.summary')}>
+        {showBoard && (
+          <div class="card-box board-box" role="group" aria-label={boardLabel ? `${t('he.board')}: ${boardLabel}` : t('he.board')}>
+            <span class="card-box-label">{t('he.board')}</span>
+            <div class="card-box-cards">
+              {[0, 1, 2, 3, 4].map((i) => {
+                const c = board[i];
+                return c && c.card != null ? <BigCard key={c.cid} card={c.card} mark={markOf(c.cid)} /> : <CardSlot key={`slot-${i}`} />;
+              })}
+            </div>
+          </div>
+        )}
+        <div class="he-dock-main">
+          <div class="dock-row wallet he-wallet">
+            <span class="he-stack">
+              {t('table.wallet')}: <b>{formatMoney(me?.stack ?? 0)}</b>
             </span>
-          )}
-          {view && (
-            <span>
-              {formatMoney(view.rules.sb)} / {formatMoney(view.rules.bb)}
-            </span>
-          )}
-          {view?.paused && <span>{t('table.paused')}</span>}
-          {view?.phase === 'waiting' && !view.paused && <span>{t('table.waiting')}</span>}
-        </div>
-
-        {act && (
-          <>
-            {range && (
-              <div class="dock-row raise-panel">
-                {presets.map((p) => (
-                  <button class="btn btn-ghost btn-sm" disabled={!ready || busy} onClick={() => setRaiseTo(p.to)}>
-                    {p.label}
-                  </button>
-                ))}
-                <input
-                  type="range"
-                  min={range.min}
-                  max={range.max}
-                  step={act.unit}
-                  value={raiseTo}
-                  aria-label={t(act.bet ? 'he.bet' : 'he.raise', { amount: formatMoney(raiseTo) })}
-                  onInput={(e) => setRaiseTo(snap(Number((e.target as HTMLInputElement).value)))}
-                  style={{ flex: '1 1 160px', accentColor: '#c9a24a' }}
-                />
-                <span class="tabular" style={{ minWidth: 70, color: 'var(--c-gold200)', fontWeight: 700 }}>
-                  {formatMoney(raiseTo)}
-                </span>
-              </div>
+            {view && (
+              <span class="he-blinds">
+                {formatMoney(view.rules.sb)} / {formatMoney(view.rules.bb)}
+              </span>
             )}
-            <div class="dock-row action-bar" role="group" aria-label={t('table.yourTurn')}>
-              {act.fold && (
-                <button class="btn btn-velvet" disabled={!ready || busy} onClick={() => void send({ type: 'FOLD' })}>
-                  {t('he.fold')}
-                  <span class="kbd">F</span>
-                </button>
+            {view?.paused && <span>{t('table.paused')}</span>}
+            {view?.phase === 'waiting' && !view.paused && <span>{t('table.waiting')}</span>}
+          </div>
+
+          {act && (
+            <>
+              {range && (
+                <div class="dock-row raise-panel">
+                  {presets.map((p) => (
+                    <button class="btn btn-ghost btn-sm" disabled={!ready || busy} onClick={() => setRaiseTo(p.to)}>
+                      {p.label}
+                    </button>
+                  ))}
+                  <input
+                    type="range"
+                    min={range.min}
+                    max={range.max}
+                    step={act.unit}
+                    value={raiseTo}
+                    aria-label={t(act.bet ? 'he.bet' : 'he.raise', { amount: formatMoney(raiseTo) })}
+                    onInput={(e) => setRaiseTo(snap(Number((e.target as HTMLInputElement).value)))}
+                    style={{ flex: '1 1 160px', accentColor: '#c9a24a' }}
+                  />
+                  <span class="tabular" style={{ minWidth: 70, color: 'var(--c-gold200)', fontWeight: 700 }}>
+                    {formatMoney(raiseTo)}
+                  </span>
+                </div>
               )}
-              {act.check ? (
-                <button class="btn btn-lacquer" disabled={!ready || busy} onClick={() => void send({ type: 'CHECK' })}>
-                  {t('he.check')}
-                  <span class="kbd">C</span>
-                </button>
-              ) : (
-                act.call != null && (
-                  <button class="btn btn-lacquer" disabled={!ready || busy} onClick={() => void send({ type: 'CALL' })}>
-                    {t(act.callIsAllIn ? 'he.callAllIn' : 'he.call', { amount: formatMoney(act.call) })}
+              <div class="dock-row action-bar" role="group" aria-label={t('table.yourTurn')}>
+                {act.fold && (
+                  <button class="btn btn-velvet" disabled={!ready || busy} onClick={() => void send({ type: 'FOLD' })}>
+                    {t('he.fold')}
+                    <span class="kbd">F</span>
+                  </button>
+                )}
+                {act.check ? (
+                  <button class="btn btn-lacquer" disabled={!ready || busy} onClick={() => void send({ type: 'CHECK' })}>
+                    {t('he.check')}
                     <span class="kbd">C</span>
                   </button>
-                )
-              )}
-              {range && (
-                <button class="btn btn-brass" disabled={!ready || busy} onClick={() => void send({ type: act.bet ? 'BET' : 'RAISE', to: raiseTo })}>
-                  {t(act.bet ? 'he.bet' : 'he.raise', { amount: formatMoney(raiseTo) })}
-                  <span class="kbd">R</span>
-                </button>
-              )}
-              {act.allIn != null && (
-                <button class="btn btn-brass" disabled={!ready || busy} onClick={() => void send({ type: 'ALL_IN' })}>
-                  {t('he.allIn', { amount: formatMoney(act.allIn) })}
-                  <span class="kbd">A</span>
-                </button>
-              )}
+                ) : (
+                  act.call != null && (
+                    <button class="btn btn-lacquer" disabled={!ready || busy} onClick={() => void send({ type: 'CALL' })}>
+                      {t(act.callIsAllIn ? 'he.callAllIn' : 'he.call', { amount: formatMoney(act.call) })}
+                      <span class="kbd">C</span>
+                    </button>
+                  )
+                )}
+                {range && (
+                  <button class="btn btn-brass" disabled={!ready || busy} onClick={() => void send({ type: act.bet ? 'BET' : 'RAISE', to: raiseTo })}>
+                    {t(act.bet ? 'he.bet' : 'he.raise', { amount: formatMoney(raiseTo) })}
+                    <span class="kbd">R</span>
+                  </button>
+                )}
+                {act.allIn != null && (
+                  <button class="btn btn-brass" disabled={!ready || busy} onClick={() => void send({ type: 'ALL_IN' })}>
+                    {t('he.allIn', { amount: formatMoney(act.allIn) })}
+                    <span class="kbd">A</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+          {legal?.kind === 'rebuy' && session.mode === 'remote' && (
+            <button class="btn btn-brass" onClick={() => void send({ type: 'REBUY' })}>
+              {t('he.rebuy', { amount: formatMoney(legal.amount) })}
+            </button>
+          )}
+          {legal?.kind === 'sitIn' && (
+            <button class="btn btn-brass" onClick={() => void send({ type: 'SIT_IN' })}>
+              {t('bj.sitIn')}
+            </button>
+          )}
+          {session.mode === 'remote' && me && view?.rules.entry === 'postOrWait' && me.needBB && (
+            <label class="btn btn-ghost btn-sm" style={{ gap: 8 }}>
+              <input type="checkbox" checked={me.waitForBB} onChange={(e) => void send({ type: 'SET_WAIT_BB', value: (e.target as HTMLInputElement).checked })} />
+              {t('he.waitForBB')}
+            </label>
+          )}
+        </div>
+        {hole.length > 0 && (
+          <div class="card-box hero-box" role="group" aria-label={t('he.yourCards')}>
+            <span class="card-box-label">{t('he.yourCards')}</span>
+            <div class="card-box-cards">
+              {hole.map((c) => (
+                <BigCard key={c.cid} card={c.card} mark={markOf(c.cid)} />
+              ))}
             </div>
-          </>
-        )}
-        {legal?.kind === 'rebuy' && session.mode === 'remote' && (
-          <button class="btn btn-brass" onClick={() => void send({ type: 'REBUY' })}>
-            {t('he.rebuy', { amount: formatMoney(legal.amount) })}
-          </button>
-        )}
-        {legal?.kind === 'sitIn' && (
-          <button class="btn btn-brass" onClick={() => void send({ type: 'SIT_IN' })}>
-            {t('bj.sitIn')}
-          </button>
-        )}
-        {session.mode === 'remote' && me && view?.rules.entry === 'postOrWait' && me.needBB && (
-          <label class="btn btn-ghost btn-sm" style={{ gap: 8 }}>
-            <input type="checkbox" checked={me.waitForBB} onChange={(e) => void send({ type: 'SET_WAIT_BB', value: (e.target as HTMLInputElement).checked })} />
-            {t('he.waitForBB')}
-          </label>
+            {heroHand && <span class="card-box-caption">{heroHand}</span>}
+          </div>
         )}
       </div>
-      <ShowdownLog view={view} results={results} />
+      <ShowdownLog view={view} results={results} you={you} />
       <div class="sr-only" aria-live="assertive">
         {act && ready ? t('table.yourTurn') : ''}
       </div>
@@ -292,18 +327,20 @@ function announceParams(view: V | null, p?: Record<string, string | number>): Re
   return out;
 }
 
-function ShowdownLog({ view, results }: { view: V | null; results: { seat: SeatId; net: number; hand: number }[] }) {
+function ShowdownLog({ view, results, you }: { view: V | null; results: { seat: SeatId; net: number; hand: number; value?: number | null }[]; you: SeatId | null }) {
   if (!view || results.length === 0) return null;
   const lines = results.map((r) => {
     const s = view.seats[r.seat];
     const name = s?.name ?? '?';
-    return { key: `${r.seat}-${r.hand}`, name, amount: r.net, shown: s?.shown };
+    return { key: `${r.seat}-${r.hand}`, name, mine: r.seat === you, amount: r.net, shown: s?.shown, value: r.value ?? null };
   });
   return (
     <div class="plaque" style={{ position: 'absolute', left: '50%', top: '22%', transform: 'translateX(-50%)', zIndex: 16, padding: '10px 18px', pointerEvents: 'none', textAlign: 'center' }}>
       {lines.map((l) => (
         <div class="gold-text" style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>
-          {t('he.wins', { name: l.name, amount: formatMoney(l.amount) })}
+          {l.value != null
+            ? t(l.mine ? 'he.youWinWith' : 'he.winsWith', { name: l.name, amount: formatMoney(l.amount), hand: handName(l.value) })
+            : t(l.mine ? 'he.youWin' : 'he.wins', { name: l.name, amount: formatMoney(l.amount) })}
         </div>
       ))}
     </div>

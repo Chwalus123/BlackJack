@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { ChipLayer } from './chips';
 import { CardLayer } from './cards';
 import { createDealer, type DealerRig } from './dealer';
+import { basePose, frameHoldemCamera, type Insets } from './framing';
 import { BJ_RACK, DEALER_POS, type V3 } from './layout';
 import { buildTable, type TableKind, type TableMeshes } from './table';
 import { buildCardAtlas, TILE_BACK_BLUE, TILE_BACK_RED } from './textures/cardAtlas';
@@ -27,12 +28,7 @@ export function webglAvailable(): boolean {
   }
 }
 
-export interface Insets {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
+export type { Insets } from './framing';
 
 /**
  * Owns the renderer, camera, lights, table, cards, chips and the dealer. Rendering is on demand: frames
@@ -201,34 +197,18 @@ export class TableScene {
     this.renderer.setSize(w, h, false);
     const aspect = w / h;
     this.camera.aspect = aspect;
-    // A seat behind the players, high enough to see the dealer chest-up and every betting spot.
-    const blackjack = this.kind === 'blackjack';
-    const target = blackjack ? new THREE.Vector3(0, 0.27, -0.04) : new THREE.Vector3(0, 0.33, -0.08);
-    const eye = blackjack ? new THREE.Vector3(0, 1.1, 2.02) : new THREE.Vector3(0, 1.42, 2.4);
-    const dir = eye.clone().sub(target);
-    let dist = dir.length();
-    dir.normalize();
-    const portrait = aspect < 1;
-    const vfov = portrait ? 62 : 42;
-    if (portrait) {
-      // Portrait phones: look down more steeply and fit the table's width to the screen.
-      const pitch = Math.atan2(dir.y, dir.z) + THREE.MathUtils.degToRad(14);
-      dir.set(0, Math.sin(pitch), Math.cos(pitch));
-      target.y -= 0.1;
-      target.z += 0.06;
-    }
-    const halfWidth = blackjack ? 0.8 : 0.98;
-    const hHalf = Math.atan(Math.tan(THREE.MathUtils.degToRad(vfov / 2)) * aspect);
-    dist = Math.max(dist, (halfWidth / Math.tan(hHalf)) * 1.04);
-    this.camera.fov = vfov;
-    this.camera.position.copy(target).addScaledVector(dir, dist);
-    this.camera.lookAt(target);
-    // Shift the view so the table centre sits in the area not covered by HUD docks.
-    const { top, bottom, left, right } = this.insets;
-    if (top || bottom || left || right) {
-      this.camera.setViewOffset(w, h, (right - left) / 2, (bottom - top) / 2, w, h);
-    } else this.camera.clearViewOffset();
-    this.camera.updateProjectionMatrix();
+    const pose = basePose(this.kind, aspect);
+    if (this.kind === 'blackjack') {
+      const { top, bottom, left, right } = this.insets;
+      this.camera.fov = pose.vfov;
+      this.camera.position.copy(pose.target).addScaledVector(pose.dir, Math.max(pose.dist, pose.widthDist));
+      this.camera.lookAt(pose.target);
+      // Shift the view so the table centre sits in the area not covered by HUD docks.
+      if (top || bottom || left || right) {
+        this.camera.setViewOffset(w, h, (right - left) / 2, (bottom - top) / 2, w, h);
+      } else this.camera.clearViewOffset();
+      this.camera.updateProjectionMatrix();
+    } else frameHoldemCamera(this.camera, pose, w, h, this.insets);
     this.dealer.lookAt(this.camera.position);
     this.wake(50);
   }

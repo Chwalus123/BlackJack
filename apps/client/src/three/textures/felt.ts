@@ -1,4 +1,4 @@
-import { BJ_TABLE, bjSpotCenter, HE_TABLE, heBoardPos, HE_POT, CARD_W, CARD_H } from '../layout';
+import { BJ_TABLE, bjSpotCenter, HE_TABLE, heBoardPos, HE_BOARD_SCALE, HE_POT, CARD_W, CARD_H } from '../layout';
 import { DISPLAY } from './fonts';
 
 /** Felt textures cover a fixed world rectangle; table geometry maps UVs to the same rectangle. */
@@ -156,11 +156,13 @@ export function buildHoldemFelt(text: FeltText, pxPerM = 1000): HTMLCanvasElemen
   ctx.lineWidth = S(0.003);
   ctx.stroke();
   // board card outlines
+  const bw = CARD_W * HE_BOARD_SCALE;
+  const bh = CARD_H * HE_BOARD_SCALE;
   for (let i = 0; i < 5; i++) {
     const p = heBoardPos(i);
     ctx.strokeStyle = GOLD_SOFT;
     ctx.lineWidth = S(0.002);
-    ctx.strokeRect(X(p.x - CARD_W / 2 - 0.004), Y(p.z - CARD_H / 2 - 0.004), S(CARD_W + 0.008), S(CARD_H + 0.008));
+    ctx.strokeRect(X(p.x - bw / 2 - 0.004), Y(p.z - bh / 2 - 0.004), S(bw + 0.008), S(bh + 0.008));
   }
   ring(ctx, X(HE_POT.x), Y(HE_POT.z), S(0.06), GOLD_SOFT, S(0.002));
   ctx.save();

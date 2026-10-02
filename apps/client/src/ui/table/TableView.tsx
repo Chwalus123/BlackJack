@@ -132,14 +132,24 @@ export function TableView({
     };
   }, [game, session]);
 
-  // Keep the table centred in the area not covered by the top bar and the bottom dock.
+  // Keep the table centred in the area not covered by the top bar and the bottom dock. In Hold'em the camera fits
+  // the table into that area, so the reserved dock height only grows (until the window is resized) and the table
+  // does not zoom every time the action bar appears.
   useEffect(() => {
     if (!ctx || !host.current) return;
     const root = host.current.parentElement!;
+    let size = '';
+    let reserved = 0;
     const measure = () => {
+      const now = `${root.clientWidth}x${root.clientHeight}`;
+      if (now !== size) {
+        size = now;
+        reserved = 0;
+      }
       const dock = root.querySelector<HTMLElement>('.dock');
-      const bottom = dock ? Math.min(dock.offsetHeight, root.clientHeight * 0.45) : 0;
-      ctx.scene.setInsets({ top: 48, bottom, left: 0, right: 0 });
+      const h = dock ? Math.min(dock.offsetHeight, root.clientHeight * 0.45) : 0;
+      reserved = game === 'holdem' ? Math.max(reserved, h) : h;
+      ctx.scene.setInsets({ top: 48, bottom: reserved, left: 0, right: 0 });
       anchors.value = anchors.peek() + 1;
     };
     const ro = new ResizeObserver(measure);
@@ -148,7 +158,7 @@ export function TableView({
     ro.observe(root);
     measure();
     return () => ro.disconnect();
-  }, [ctx]);
+  }, [ctx, game]);
 
   // Keep the dealer badge text and felt print in the chosen language.
   useEffect(() => {

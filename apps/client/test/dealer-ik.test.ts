@@ -18,6 +18,7 @@ import {
   type Side,
   type Vec3,
 } from '../src/three/dealer/ik';
+import { HE_POT, heBoardPos } from '../src/three/layout';
 
 const L1 = DIM.upperArm;
 const L2 = DIM.forearm;
@@ -145,12 +146,13 @@ const holdem = Array.from({ length: 10 }, (_, i) => {
   const a = (-150 + (300 * i) / 9) * DEG;
   return { name: `holdem seat ${i}`, p: local(0.95 * Math.sin(a), 0, 0.05 + 0.48 * Math.cos(a)) };
 });
-const board = [-0.26, -0.13, 0, 0.13, 0.26].map((x) => ({ name: `board ${x}`, p: local(x, 0, -0.02) }));
+// the real community-card slots and pot from the table layout, so moving them re-checks the dealer's reach
+const board = [0, 1, 2, 3, 4].map((i) => ({ name: `board slot ${i}`, p: local(heBoardPos(i).x, 0, heBoardPos(i).z) }));
 const fixed = [
   { name: 'shoe', p: local(0.6, 0.06, -0.3) },
   { name: 'discard', p: local(-0.6, 0.04, -0.3) },
   { name: 'rack', p: local(0, 0.03, -0.4) },
-  { name: 'pot', p: local(0, 0, 0.12) },
+  { name: 'pot', p: local(HE_POT.x, 0, HE_POT.z) },
   ...[-0.1, 0.05, 0.2].map((x) => ({ name: `dealer card ${x}`, p: local(x, 0, -0.12) })),
 ];
 const TARGETS = [...bj, ...holdem, ...board, ...fixed];

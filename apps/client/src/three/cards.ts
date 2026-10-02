@@ -110,7 +110,8 @@ export class CardLayer {
     return [...this.cards.values()];
   }
 
-  create(cid: number, card: Card | null, pos: V3, yaw: number, faceUp: boolean): CardObj {
+  /** `scale` enlarges a card in place (Hold'em community cards are drawn bigger than hole cards). */
+  create(cid: number, card: Card | null, pos: V3, yaw: number, faceUp: boolean, scale = 1): CardObj {
     this.remove(cid);
     const mesh = new THREE.Mesh(this.buildGeometry(card ?? this.backTile), this.material);
     mesh.castShadow = true;
@@ -119,6 +120,7 @@ export class CardLayer {
     const group = new THREE.Group();
     group.position.set(pos.x, pos.y, pos.z);
     group.rotation.y = yaw;
+    group.scale.setScalar(scale);
     group.add(mesh);
     this.group.add(group);
     const obj: CardObj = { cid, card, group, mesh, faceUp };
@@ -135,8 +137,8 @@ export class CardLayer {
     old.dispose();
   }
 
-  /** Arc flight from → to, spinning to the target yaw. Lands flat; optionally turns face up on the way. */
-  fly(cid: number, to: V3, toYaw: number, durationMs: number, opts?: { from?: V3; height?: number; faceUp?: boolean }): Promise<void> {
+  /** Arc flight from → to, spinning to the target yaw. Lands flat; optionally turns face up and resizes on the way. */
+  fly(cid: number, to: V3, toYaw: number, durationMs: number, opts?: { from?: V3; height?: number; faceUp?: boolean; scale?: number }): Promise<void> {
     const o = this.cards.get(cid);
     if (!o) return Promise.resolve();
     const g = o.group;
@@ -148,10 +150,13 @@ export class CardLayer {
     const flip1 = opts?.faceUp === undefined ? flip0 : opts.faceUp ? 0 : Math.PI;
     if (opts?.faceUp !== undefined) o.faceUp = opts.faceUp;
     const tilt = flip0 !== flip1 ? 0 : 0.18;
+    const s0 = g.scale.x;
+    const s1 = opts?.scale ?? s0;
     return this.tweens.add(
       durationMs,
       (k) => {
         g.position.lerpVectors(from, target, k);
+        if (s1 !== s0) g.scale.setScalar(s0 + (s1 - s0) * k);
         g.position.y += Math.sin(Math.PI * k) * h;
         g.rotation.y = yaw0 + (toYaw - yaw0) * k;
         o.mesh.rotation.z = flip0 + (flip1 - flip0) * k;

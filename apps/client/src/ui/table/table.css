@@ -479,6 +479,198 @@
   background: repeating-linear-gradient(45deg, #5e1220 0 5px, #7a1628 5px 10px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 0 0 2px #fbf6ea, inset 0 0 0 3px #c9a24a;
 }
+/* A face card turns in as it lands; empty slots are gold outlines on the felt. */
+.big-card:not(.back):not(.slot) {
+  animation: big-card-in 240ms ease-out;
+  transition: transform 200ms ease-out, opacity 200ms ease-out, box-shadow 200ms ease-out;
+}
+@keyframes big-card-in {
+  from {
+    transform: perspective(300px) rotateY(80deg);
+    opacity: 0.4;
+  }
+}
+.big-card.slot {
+  background: rgba(4, 23, 15, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 74, 0.45);
+}
+.big-card.win {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 2px var(--c-gold300), 0 0 16px rgba(230, 200, 120, 0.75), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.big-card.dim {
+  opacity: 0.45;
+}
+
+/* Hold'em dock: the board and your hole cards in felt-lined boxes. Narrow screens stack the boxes above the
+   actions; wide and short-landscape screens put the board left and your cards right of the action column. */
+.he-dock {
+  grid-template-columns: auto auto;
+  justify-content: center;
+  column-gap: 8px;
+}
+.he-dock > .board-box {
+  grid-column: 1;
+  grid-row: 1;
+}
+.he-dock > .hero-box {
+  grid-column: 2;
+  grid-row: 1;
+}
+.he-dock-main {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  width: 100%;
+  min-width: 0;
+}
+.card-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px 8px;
+  border-radius: 12px;
+  background: radial-gradient(120% 100% at 50% 0%, var(--c-felt600) 0%, var(--c-felt800) 60%, var(--c-felt900) 100%);
+  border: 1px solid var(--c-gold700);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(243, 223, 162, 0.12), 0 8px 18px rgba(0, 0, 0, 0.5);
+}
+.card-box-label {
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-gold300);
+  line-height: 1;
+}
+.card-box-cards {
+  display: flex;
+  gap: 5px;
+}
+.card-box-caption {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--c-gold200);
+  line-height: 1.1;
+  max-width: 150px;
+  text-align: center;
+}
+@media (min-width: 1100px) and (min-height: 561px) {
+  .he-dock {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    justify-content: stretch;
+    align-items: end;
+    column-gap: 16px;
+  }
+  .he-dock > .board-box {
+    grid-column: 1;
+  }
+  .he-dock-main {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .he-dock > .hero-box {
+    grid-column: 3;
+  }
+}
+@media (max-width: 640px) {
+  .card-box {
+    padding: 5px 6px 6px;
+    gap: 4px;
+  }
+  .card-box-cards {
+    gap: 4px;
+  }
+  .card-box .big-card {
+    width: 36px;
+    height: 50px;
+    font-size: 16px;
+  }
+}
+@media (max-height: 560px) and (orientation: landscape) {
+  .he-dock {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    justify-content: stretch;
+    align-items: end;
+    column-gap: 8px;
+    gap: 6px;
+  }
+  .he-dock-main {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 6px;
+  }
+  .he-dock > .hero-box {
+    grid-column: 3;
+  }
+  .card-box {
+    flex-direction: row;
+    padding: 4px 6px;
+    gap: 4px;
+  }
+  .card-box-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 8px;
+  }
+  .card-box-caption {
+    display: none;
+  }
+  .card-box-cards {
+    gap: 3px;
+  }
+  .card-box .big-card {
+    width: 30px;
+    height: 42px;
+    font-size: 13px;
+  }
+  /* keep the raise panel on one line: the bet button already shows the amount */
+  .he-dock .raise-panel {
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+  .he-dock .raise-panel > .tabular {
+    display: none;
+  }
+  .he-dock .raise-panel > input[type='range'] {
+    flex: 1 1 60px !important;
+    min-width: 60px;
+  }
+  .he-dock .raise-panel > .btn {
+    padding-inline: 8px;
+  }
+  /* one compact row of actions; stack and blinds are already on the seat plate and in the top bar */
+  .he-dock .action-bar {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .he-dock .action-bar .btn {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-inline: 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .he-dock .action-bar .kbd,
+  .he-dock .he-stack,
+  .he-dock .he-blinds {
+    display: none;
+  }
+  /* the table is small here: compact seat plates, as on portrait phones */
+  .he-anchors .seat-plate {
+    min-width: 0;
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+  .he-anchors .seat-plate .stack,
+  .he-anchors .seat-plate .status {
+    display: none;
+  }
+}
 .raise-panel {
   padding: 6px 10px;
   border-radius: 14px;

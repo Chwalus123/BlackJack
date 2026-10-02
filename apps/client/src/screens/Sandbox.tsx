@@ -6,6 +6,7 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { COLORS } from '../shared/tokens';
 import { createDealer, type DealerRig } from '../three/dealer';
+import { heBoardPos } from '../three/layout';
 
 /**
  * #/sandbox — a self-contained stage for the procedural croupier: felt, target markers, orbit camera and a
@@ -28,7 +29,7 @@ const dealerCard = (slot: number) => new THREE.Vector3(-0.06 + slot * 0.08, 0, -
 const HE_SEAT_ANGLES = Array.from({ length: 10 }, (_, i) => -150 + (300 * i) / 9);
 const HE_SEATS = HE_SEAT_ANGLES.map((a) => new THREE.Vector3(0.95 * Math.sin(a * DEG), 0, 0.05 + 0.48 * Math.cos(a * DEG)));
 const HE_HOLE = HE_SEATS.map((p) => p.clone().lerp(new THREE.Vector3(0, 0, 0.05), 0.24));
-const HE_BOARD = [-0.26, -0.13, 0, 0.13, 0.26].map((x) => new THREE.Vector3(x, 0, -0.02));
+const HE_BOARD = [0, 1, 2, 3, 4].map((i) => new THREE.Vector3(heBoardPos(i).x, 0, heBoardPos(i).z));
 
 const CARD_W = 0.0635;
 const CARD_H = 0.0889;

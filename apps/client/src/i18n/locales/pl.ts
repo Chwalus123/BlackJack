@@ -160,6 +160,10 @@ export const pl = {
   'he.allInTag': 'All-in',
   'he.wins': '{name} wygrywa {amount}',
   'he.winsWith': '{name} wygrywa {amount} — {hand}',
+  'he.youWin': 'Wygrywasz {amount}',
+  'he.youWinWith': 'Wygrywasz {amount} — {hand}',
+  'he.board': 'Karty wspólne',
+  'he.yourCards': 'Twoje karty',
   'he.cashOut': 'Wypłać żetony',
   'he.returnToTable': 'Masz {amount} na stole. Wrócić do gry?',
 
@@ -219,6 +223,7 @@ export const pl = {
   'announce.he.showdown': 'Pokazujemy karty',
   'announce.he.allIn': 'All-in!',
   'announce.he.wins': 'Pula dla {name}',
+  'announce.he.youWin': 'Pula dla Ciebie',
   'announce.he.splitPot': 'Pula dzielona',
   'announce.table.welcome': 'Witamy przy stole',
   'announce.table.paused': 'Gra wstrzymana',
