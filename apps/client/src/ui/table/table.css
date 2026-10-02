@@ -502,28 +502,36 @@
   opacity: 0.45;
 }
 
-/* Hold'em dock: the board and your hole cards in felt-lined boxes. Narrow screens stack the boxes above the
-   actions; wide and short-landscape screens put the board left and your cards right of the action column. */
+/* Hold'em dock: the board and your hole cards in felt-lined boxes. Narrow screens centre the boxes above the
+   actions (the outer tracks let the action column use the full dock width); wide and short-landscape screens
+   put the board left and your cards right of the action column. */
 .he-dock {
-  grid-template-columns: auto auto;
-  justify-content: center;
-  column-gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr);
+  column-gap: 0;
 }
 .he-dock > .board-box {
-  grid-column: 1;
-  grid-row: 1;
-}
-.he-dock > .hero-box {
   grid-column: 2;
   grid-row: 1;
+  margin-right: 4px;
+}
+.he-dock > .hero-box {
+  grid-column: 3;
+  grid-row: 1;
+  margin-left: 4px;
 }
 .he-dock-main {
   grid-column: 1 / -1;
   grid-row: 2;
+  /* fill the cell: .dock centres its items, which would shrink this column to its content */
+  justify-self: stretch;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
   justify-items: center;
-  width: 100%;
+  min-width: 0;
+}
+.he-dock-main > .dock-row {
+  max-width: min(980px, 100%);
   min-width: 0;
 }
 .card-box {
@@ -550,23 +558,28 @@
   display: flex;
   gap: 5px;
 }
+/* Always present (empty before the flop) so the box does not grow when the hand name appears. */
 .card-box-caption {
   font-size: 11px;
   font-weight: 600;
   color: var(--c-gold200);
   line-height: 1.1;
+  min-height: 1.1em;
   max-width: 150px;
   text-align: center;
 }
-@media (min-width: 1100px) and (min-height: 561px) {
+.board-box .card-box-caption {
+  display: none;
+}
+@media (min-width: 1000px) and (min-height: 561px) {
   .he-dock {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    justify-content: stretch;
     align-items: end;
     column-gap: 16px;
   }
   .he-dock > .board-box {
     grid-column: 1;
+    margin: 0;
   }
   .he-dock-main {
     grid-column: 2;
@@ -574,6 +587,7 @@
   }
   .he-dock > .hero-box {
     grid-column: 3;
+    margin: 0;
   }
 }
 @media (max-width: 640px) {
@@ -590,13 +604,61 @@
     font-size: 16px;
   }
 }
+/* Short portrait phones (e.g. 375×667): a compact dock so the table above stays clear. The stack moves from the
+   dock to the hero's seat plate; the bet button already shows the raise amount. */
+@media (orientation: portrait) and (max-height: 760px) {
+  .card-box {
+    padding: 4px 6px 5px;
+    gap: 3px;
+  }
+  .card-box-label {
+    font-size: 8px;
+  }
+  .card-box-caption {
+    font-size: 10px;
+  }
+  .card-box .big-card {
+    width: 30px;
+    height: 42px;
+    font-size: 14px;
+  }
+  .he-dock .he-stack,
+  .he-dock .he-blinds,
+  .he-dock .raise-panel > .tabular,
+  .he-dock .action-bar .kbd {
+    display: none;
+  }
+  .he-anchors .seat-plate.me .stack {
+    display: block;
+  }
+  .he-dock .raise-panel {
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+  .he-dock .raise-panel > .btn {
+    padding-inline: 7px;
+  }
+  .he-dock .raise-panel > input[type='range'] {
+    flex: 1 1 50px !important;
+    min-width: 50px;
+  }
+  .he-dock .action-bar .btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+}
 @media (max-height: 560px) and (orientation: landscape) {
   .he-dock {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    justify-content: stretch;
     align-items: end;
     column-gap: 8px;
     gap: 6px;
+  }
+  .he-dock > .board-box {
+    grid-column: 1;
+    margin: 0;
   }
   .he-dock-main {
     grid-column: 2;
@@ -605,17 +667,13 @@
   }
   .he-dock > .hero-box {
     grid-column: 3;
+    margin: 0;
   }
+  /* the group names stay for screen readers; visually the boxes are just the cards */
   .card-box {
-    flex-direction: row;
-    padding: 4px 6px;
-    gap: 4px;
+    padding: 4px;
   }
-  .card-box-label {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    font-size: 8px;
-  }
+  .card-box-label,
   .card-box-caption {
     display: none;
   }
@@ -627,13 +685,15 @@
     height: 42px;
     font-size: 13px;
   }
-  /* keep the raise panel on one line: the bet button already shows the amount */
   .he-dock .raise-panel {
     flex-wrap: nowrap;
     gap: 6px;
     padding: 4px 8px;
   }
-  .he-dock .raise-panel > .tabular {
+  .he-dock .raise-panel > .tabular,
+  .he-dock .action-bar .kbd,
+  .he-dock .he-stack,
+  .he-dock .he-blinds {
     display: none;
   }
   .he-dock .raise-panel > input[type='range'] {
@@ -643,9 +703,7 @@
   .he-dock .raise-panel > .btn {
     padding-inline: 8px;
   }
-  /* one compact row of actions; stack and blinds are already on the seat plate and in the top bar */
   .he-dock .action-bar {
-    flex-wrap: nowrap;
     gap: 6px;
   }
   .he-dock .action-bar .btn {
@@ -655,20 +713,51 @@
     font-size: 13px;
     white-space: nowrap;
   }
-  .he-dock .action-bar .kbd,
-  .he-dock .he-stack,
-  .he-dock .he-blinds {
-    display: none;
-  }
-  /* the table is small here: compact seat plates, as on portrait phones */
+  /* the table is small here: compact seat plates; the hero's plate keeps the stack (the dock hides it) */
   .he-anchors .seat-plate {
     min-width: 0;
     padding: 2px 6px;
     font-size: 11px;
   }
-  .he-anchors .seat-plate .stack,
+  .he-anchors .seat-plate:not(.me) .stack,
   .he-anchors .seat-plate .status {
     display: none;
+  }
+  .he-anchors .seat-plate.me .stack {
+    display: block;
+  }
+}
+/* four actions on one line: wide phones fit them beside both boxes; narrower ones stack the boxes on the left */
+@media (max-height: 560px) and (orientation: landscape) {
+  .he-dock .action-bar {
+    flex-wrap: nowrap;
+  }
+  .he-dock .action-bar .btn {
+    --h: 40px;
+  }
+}
+@media (max-height: 560px) and (orientation: landscape) and (max-width: 819px) {
+  .he-dock {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 4px;
+  }
+  .he-dock > .board-box {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .he-dock > .hero-box {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .he-dock-main {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: end;
+  }
+  .he-dock .action-bar .btn {
+    padding-inline: 8px;
+    font-size: 12px;
   }
 }
 .raise-panel {

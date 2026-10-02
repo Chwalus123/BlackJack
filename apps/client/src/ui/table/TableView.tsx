@@ -147,7 +147,7 @@ export function TableView({
         reserved = 0;
       }
       const dock = root.querySelector<HTMLElement>('.dock');
-      const h = dock ? Math.min(dock.offsetHeight, root.clientHeight * 0.45) : 0;
+      const h = dock ? Math.min(dock.offsetHeight, root.clientHeight * (game === 'holdem' ? 0.55 : 0.45)) : 0;
       reserved = game === 'holdem' ? Math.max(reserved, h) : h;
       ctx.scene.setInsets({ top: 48, bottom: reserved, left: 0, right: 0 });
       anchors.value = anchors.peek() + 1;

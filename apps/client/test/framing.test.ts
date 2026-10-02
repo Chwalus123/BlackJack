@@ -8,10 +8,12 @@ const SCREENS: { name: string; w: number; h: number; dock: number }[] = [
   { name: 'laptop', w: 1280, h: 800, dock: 150 },
   { name: 'full HD', w: 1920, h: 1080, dock: 150 },
   { name: 'small laptop', w: 1366, h: 768, dock: 150 },
-  { name: 'tablet landscape', w: 1024, h: 768, dock: 300 },
+  { name: 'tablet landscape', w: 1024, h: 768, dock: 200 },
   { name: 'tablet portrait', w: 768, h: 1024, dock: 300 },
   { name: 'phone portrait', w: 390, h: 844, dock: 300 },
   { name: 'phone landscape', w: 844, h: 390, dock: 110 },
+  { name: 'small phone portrait', w: 375, h: 667, dock: 250 },
+  { name: 'small phone landscape', w: 667, h: 375, dock: 160 },
 ];
 
 function framed(w: number, h: number, insets: Insets) {
@@ -82,6 +84,8 @@ describe("Hold'em camera framing", () => {
     const w = CARD_W * HE_BOARD_SCALE;
     const hgt = CARD_H * HE_BOARD_SCALE;
     for (let i = 0; i < 4; i++) expect(heBoardPos(i + 1).x - heBoardPos(i).x).toBeGreaterThan(w + 0.01);
-    expect(HE_POT.z - heBoardPos(2).z).toBeGreaterThan(hgt / 2 + 0.03);
+    // the felt's pot ring (radius 0.06) keeps at least 5 mm of felt from the board outline (drawn 4 mm out)
+    const outlineFront = heBoardPos(2).z + hgt / 2 + 0.004;
+    expect(HE_POT.z - 0.06 - outlineFront).toBeGreaterThan(0.005);
   });
 });

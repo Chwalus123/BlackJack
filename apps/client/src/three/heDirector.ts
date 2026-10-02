@@ -3,6 +3,7 @@ import { clone, he, PACING, type Account, type Reveal, type SeatId } from '@casi
 import type { TableStore } from '../store/table';
 import { sfx } from '../shared/sound';
 import type { TableScene } from './scene';
+import { winningCids } from './heWinners';
 import { HE_BOARD_SCALE, HE_DECK, HE_MUCK, HE_POT, HE_SPOT_ANGLES, HE_TABLE, heBetPos, heBoardPos, heButtonPos, heHolePos, heSpotCenter, heStackPos, mapSeats, v3, type V3 } from './layout';
 
 type V = he.HView;
@@ -25,7 +26,11 @@ export class HoldemDirector {
   /** Known card faces from private reveals (my hole cards), by cid. */
   private known = new Map<number, number>();
   spots = new Map<SeatId, number>();
+  /** Card ids of the winning five(s) at showdown, lit in 3D and in the HUD boxes. */
   highlight = new Set<number>();
+  /** Bumped by snapshots: animations and commits started before a snapshot must not touch the new view. */
+  private epoch = 0;
+  private playEpoch = 0;
 
   constructor(
     private readonly scene: TableScene,
@@ -50,6 +55,9 @@ export class HoldemDirector {
   }
 
   applySnapshot(view: V): void {
+    this.epoch++;
+    this.chain = Promise.resolve();
+    this.highlight.clear();
     this.queue = [];
     this.pendingMine = 0;
     this.presented = clone(view);
@@ -274,7 +282,10 @@ export class HoldemDirector {
         break;
       case 'PotAwarded':
         for (const w of ev.winners) this.store.pushResult({ seat: w.seat, hand: ev.pot, outcome: 'win', net: w.amount, value: ev.value });
-        if (ev.best5) for (const cid of ev.best5) this.highlight.add(cid);
+        for (const cid of this.winningCids(ev)) this.highlight.add(cid);
+        break;
+      case 'CardsCollected':
+        this.highlight.clear();
         break;
       case 'HandStarted':
         this.store.clearResults();
@@ -320,7 +331,17 @@ export class HoldemDirector {
   }
 
   private commitAfter(landing: Promise<unknown>, ev: E, reveals: Map<number, number>): void {
-    this.chain = Promise.all([this.chain, landing]).then(() => this.commit(ev, reveals));
+    const ep = this.playEpoch;
+    this.chain = Promise.all([this.chain, landing]).then(() => this.commitIf(ep, ev, reveals));
+  }
+
+  /** Commit unless a snapshot has replaced the view since this event started playing. */
+  private commitIf(ep: number, ev: E, reveals: Map<number, number>): void {
+    if (ep === this.epoch) this.commit(ev, reveals);
+  }
+
+  private winningCids(ev: Extract<E, { e: 'PotAwarded' }>): number[] {
+    return winningCids(this.presented, ev);
   }
 
   private async run(): Promise<void> {
@@ -328,6 +349,7 @@ export class HoldemDirector {
     try {
       while (this.queue.length && !this.disposed) {
         const q = this.queue.shift()!;
+        this.playEpoch = this.epoch;
         this.scene.setSpeed(this.speed());
         try {
           await this.play(q.ev, q.reveals);
@@ -361,13 +383,19 @@ export class HoldemDirector {
     const s = this.seat(seat);
     if (!s) return;
     const sc = this.scene;
+    const ep = this.playEpoch;
     await Promise.all(
       s.hole.map((c) =>
         sc.cards.has(c.cid)
-          ? sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, 420, { faceUp: false, height: 0.04 }).then(() => sc.cards.remove(c.cid))
+          ? sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, 420, { faceUp: false, height: 0.04 }).then(() => this.removeIf(ep, c.cid))
           : Promise.resolve(),
       ),
     );
+  }
+
+  /** Remove a card after its exit flight, unless a snapshot has since rebuilt the table (it may hold that cid). */
+  private removeIf(ep: number, cid: number): void {
+    if (ep === this.epoch) this.scene.cards.remove(cid);
   }
 
   private async play(ev: E, reveals: Map<number, number>): Promise<void> {
@@ -375,7 +403,7 @@ export class HoldemDirector {
     switch (ev.e) {
       case 'HandStarted': {
         await this.chain;
-        this.commit(ev, reveals);
+        this.commitIf(this.playEpoch, ev, reveals);
         this.remap();
         this.scene.setCardBack(ev.hand % 2 === 1);
         this.syncChips();
@@ -384,7 +412,7 @@ export class HoldemDirector {
       case 'SeatJoined':
       case 'SeatLeft': {
         await this.chain;
-        this.commit(ev, reveals);
+        this.commitIf(this.playEpoch, ev, reveals);
         const before = JSON.stringify([...this.spots]);
         this.remap();
         if (JSON.stringify([...this.spots]) !== before) this.rebuild();
@@ -425,11 +453,14 @@ export class HoldemDirector {
           pos = { x: HE_MUCK.x, y: HE_MUCK.y + 0.002, z: HE_MUCK.z };
           yaw = 0.3;
         }
+        const ep = this.playEpoch;
         const landing = new Promise<void>((resolve) => {
           let released = false;
           const release = (from: THREE.Vector3 | V3) => {
             if (released) return;
             released = true;
+            // A snapshot rebuilt the table while the dealer was reaching: do not fly a stale card onto it.
+            if (ep !== this.epoch) return resolve();
             sc.cards.create(ev.cid, face, { x: from.x, y: from.y, z: from.z }, 0, false);
             const dist = Math.hypot(from.x - pos.x, from.z - pos.z);
             void sc.cards.fly(ev.cid, pos, yaw, 200 + dist * 240, { faceUp, scale: t.t === 'board' ? HE_BOARD_SCALE : 1 }).then(resolve);
@@ -496,11 +527,9 @@ export class HoldemDirector {
       }
       case 'PotAwarded': {
         await this.chain;
-        if (ev.best5) {
-          for (const cid of ev.best5) {
-            const c = sc.cards.get(cid);
-            if (c) void sc.tweens.add(250, (k) => (c.group.position.y = 0.0006 + k * 0.012));
-          }
+        for (const cid of this.winningCids(ev)) {
+          const c = sc.cards.get(cid);
+          if (c) void sc.tweens.add(250, (k) => (c.group.position.y = 0.0006 + k * 0.012));
         }
         this.commitAfter(this.wait(350), ev, reveals);
         await this.wait(350);
@@ -508,16 +537,17 @@ export class HoldemDirector {
       }
       case 'CardsCollected': {
         await this.chain;
+        const ep = this.playEpoch;
         const all = sc.cards.all();
         if (all.length) {
           sc.dealer.sweep(all.map((c) => c.group.position.clone()), vec(HE_MUCK), { durationMs: PACING.sweep });
           await Promise.all(
             all.map((c) =>
-              sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, PACING.sweep * 0.6, { faceUp: false, height: 0.05, scale: 1 }).then(() => sc.cards.remove(c.cid)),
+              sc.cards.fly(c.cid, { x: HE_MUCK.x, y: HE_MUCK.y, z: HE_MUCK.z }, 0.3, PACING.sweep * 0.6, { faceUp: false, height: 0.05, scale: 1 }).then(() => this.removeIf(ep, c.cid)),
             ),
           );
         }
-        this.commit(ev, reveals);
+        this.commitIf(this.playEpoch, ev, reveals);
         this.syncChips();
         return;
       }

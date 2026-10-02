@@ -153,6 +153,8 @@ apps/client         Vite + Preact HUD over a Three.js scene: procedural table, c
   - Every engine event (card dealt, card flipped, chips moved…) is choreographed by an animation director: the dealer's arm, card flights, flips and chip movements.
   - Sounds are synthesised with WebAudio: no audio files.
   - Totals and results appear only when the animation shows them.
+  - In Hold'em the bottom bar repeats the board and your hole cards as large cards, names your current hand, and lights up the winning five at showdown. Each card appears there only once it has landed on the table.
+  - The cards have jumbo corner indices, like casino poker decks, and the Hold'em camera fits the table into the space above the bottom bar, so the board stays readable on phones too.
   - Speed is adjustable (0.5×–instant) and respects *reduced motion*.
 - **Original assets:**
   - The cards, chips, felt print, table, dealer model and rules text are all generated or written for this project.

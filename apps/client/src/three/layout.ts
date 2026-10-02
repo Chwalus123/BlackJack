@@ -149,7 +149,7 @@ export const HE_BOARD_SPACING = 0.13;
 export function heBoardPos(slot: number): V3 {
   return v3((slot - 2) * HE_BOARD_SPACING, 0.0006, -0.02);
 }
-export const HE_POT = v3(0, 0, 0.12);
+export const HE_POT = v3(0, 0, 0.13);
 export const HE_DECK = v3(0.24, 0.07, -0.36); // in the dealer's left hand area
 export const HE_MUCK = v3(-0.3, 0.004, -0.3);
 

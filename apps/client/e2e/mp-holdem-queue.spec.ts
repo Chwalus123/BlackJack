@@ -33,6 +33,11 @@ test("multiplayer Hold'em: fixed blinds, a full table queues the next player", a
   await a.getByRole('button', { name: 'Start the game' }).click();
   // Somebody gets to act within a few seconds, with blinds marked on the plates.
   await expect(a.locator('.seat-plate .tag', { hasText: /^(SB|BB)$/ }).first()).toBeVisible({ timeout: 30000 });
+  // Each seated player is recognised as the hero: their own two cards show face up in the dock.
+  for (const p of [a, b]) {
+    await expect(p.locator('.hero-box').getByRole('img')).toHaveCount(2, { timeout: 30000 });
+    await expect(p.locator('.seat-plate.me')).toBeVisible();
+  }
   await expect(async () => {
     const n = (await a.getByRole('button', { name: /^(Check|Call|Fold)/ }).count()) + (await b.getByRole('button', { name: /^(Check|Call|Fold)/ }).count());
     expect(n).toBeGreaterThan(0);

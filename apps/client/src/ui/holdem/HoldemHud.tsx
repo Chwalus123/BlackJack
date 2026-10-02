@@ -1,20 +1,18 @@
 import { useEffect, useState } from 'preact/hooks';
 import { he, type Money, type SeatId } from '@casino/engine';
 import { formatMoney, t } from '../../i18n';
-import { HE_POT, heBetPos, heHolePos, heStackPos, heBoardPos } from '../../three/layout';
+import { HE_POT, HE_SPOT_ANGLES, heBetPos, heHolePos, heStackPos, heBoardPos } from '../../three/layout';
 import type { TableContext } from '../table/TableView';
 import type { HoldemDirector } from '../../three/heDirector';
 import { TimerBar } from '../table/Timer';
 import { Icon } from '../deco';
-import { BigCard, CardSlot, cardLabel } from '../cards/BigCard';
+import { BigCard, CardSlot } from '../cards/BigCard';
 import { toast } from '../chrome';
 
 type V = he.HView;
 type L = he.HLegal;
 type Act = Extract<L, { kind: 'act' }>;
 
-/** Phases in which a hand is being played, so the board box shows (with empty slots before the flop). */
-const HAND_PHASES = new Set<he.HPhase>(['preflop', 'flop', 'turn', 'river', 'showdown']);
 
 
 export function handName(value: number | null): string {
@@ -73,9 +71,9 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
   const announce = store.announce.value;
 
   // Community cards and the hero's cards as large 2D cards in the dock. Everything comes from the presented
-  // view, so a card appears here only once it has landed on the 3D table.
+  // view, so a card appears here only once it has landed on the 3D table. Both boxes stay up between hands
+  // (with empty places) so the dock, and with it the camera framing, keeps one height.
   const board = view?.board ?? [];
-  const showBoard = !!view && (board.length > 0 || HAND_PHASES.has(view.phase));
   const hole = me?.hole ?? [];
   const holeKnown = hole.length === 2 && hole.every((c) => c.card != null);
   const known = (cs: readonly { card: number | null }[]) => cs.map((c) => c.card).filter((c): c is number => c != null);
@@ -83,7 +81,6 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
   // At showdown the winning five cards light up and the rest dim (same set the 3D table lifts).
   const best = director.highlight;
   const markOf = (cid: number): 'win' | 'dim' | undefined => (best.size === 0 ? undefined : best.has(cid) ? 'win' : 'dim');
-  const boardLabel = known(board).map(cardLabel).join(' ');
 
   const snap = (v: number) => {
     if (!act || !range) return v;
@@ -144,8 +141,10 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
               </div>
               {s.street > 0 && (() => {
                 const b = proj(heBetPos(spot));
+                // The two far seats bet just behind the board: put their amount above the chips, off the cards.
+                const far = Math.abs(HE_SPOT_ANGLES[spot] ?? 0) > 120;
                 return (
-                  <div class="bet-amount" style={{ left: b.x, top: b.y + 18 }}>
+                  <div class="bet-amount" style={{ left: b.x, top: b.y + (far ? -18 : 18) }}>
                     {formatMoney(s.street)}
                   </div>
                 );
@@ -195,9 +194,11 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
       {showPlayers && view && <HoldemPlayers view={view} you={you} onClose={() => setShowPlayers(false)} />}
 
       <div class="dock he-dock" role="region" aria-label={t('table.summary')}>
-        {showBoard && (
-          <div class="card-box board-box" role="group" aria-label={boardLabel ? `${t('he.board')}: ${boardLabel}` : t('he.board')}>
-            <span class="card-box-label">{t('he.board')}</span>
+        {view && (
+          <div class="card-box board-box" role="group" aria-label={t('he.board')}>
+            <span class="card-box-label" aria-hidden="true">
+              {t('he.board')}
+            </span>
             <div class="card-box-cards">
               {[0, 1, 2, 3, 4].map((i) => {
                 const c = board[i];
@@ -296,15 +297,15 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
             </label>
           )}
         </div>
-        {hole.length > 0 && (
+        {me && (
           <div class="card-box hero-box" role="group" aria-label={t('he.yourCards')}>
-            <span class="card-box-label">{t('he.yourCards')}</span>
+            <span class="card-box-label" aria-hidden="true">
+              {t('he.yourCards')}
+            </span>
             <div class="card-box-cards">
-              {hole.map((c) => (
-                <BigCard key={c.cid} card={c.card} mark={markOf(c.cid)} />
-              ))}
+              {hole.length > 0 ? hole.map((c) => <BigCard key={c.cid} card={c.card} mark={markOf(c.cid)} />) : [<CardSlot key="h0" />, <CardSlot key="h1" />]}
             </div>
-            {heroHand && <span class="card-box-caption">{heroHand}</span>}
+            <span class="card-box-caption">{heroHand}</span>
           </div>
         )}
       </div>

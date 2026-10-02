@@ -48,12 +48,12 @@ export const HE_FRAME = {
   headTopY: 0.98,
   railZ: HE_TABLE.centerZ + HE_TABLE.halfDepth + 0.1,
   /** How far the hero's seat plate hangs below its anchor, in CSS px (compact plates on small screens). */
-  plateDrop: (w: number, h: number) => (w <= 640 || h <= 480 ? 34 : 66),
+  plateDrop: (w: number, h: number) => (w <= 640 || h <= 560 ? 48 : 66),
   /** On wide screens the top bar's controls sit in the corners, so the dealer's head may rise into its band. */
   topFor: (w: number, insets: Insets) => (w >= 700 ? 0 : insets.top),
   pad: 8,
-  /** Never squeeze the scene below this share of the screen height (short landscape phones). */
-  minShare: 0.55,
+  /** Never squeeze the scene below this share of the screen height (very small phones). */
+  minShare: 0.4,
 } as const;
 
 const tmp = new THREE.Vector3();

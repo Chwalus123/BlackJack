@@ -159,8 +159,8 @@ export class RemoteTable implements GameSession<unknown, unknown, unknown> {
     if (p.eid <= this.eid) {
       // Legal changed without a newer public batch (e.g. settings rebuilt): apply now.
       this.legal = p.legal;
-      this.you = p.you;
       this.emit({ kind: 'legal', legal: p.legal });
+      this.setYou(p.you);
       return;
     }
     this.privByEid.set(p.eid, p);
@@ -184,10 +184,20 @@ export class RemoteTable implements GameSession<unknown, unknown, unknown> {
     let reveals: Reveal[] = [];
     if (priv) {
       this.legal = priv.legal;
-      this.you = priv.you;
       reveals = priv.reveals;
     }
     this.emit({ kind: 'batch', pub: b.pub, reveals, legal: this.legal });
+    if (priv) this.setYou(priv.you);
+  }
+
+  /**
+   * The table learns the player's own seat from snapshots. Sitting down or standing up arrives as a private
+   * batch instead, so fetch a fresh snapshot then: it carries the seat and the player's own hole cards.
+   */
+  private setYou(you: SeatId | null): void {
+    if (you === this.you) return;
+    this.you = you;
+    if (this.last) void this.resync();
   }
 
   private async resync(): Promise<void> {
