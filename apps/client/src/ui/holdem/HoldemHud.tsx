@@ -181,7 +181,7 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
 
       {announce && (
         <div class="announce" key={announce.id} role="status" aria-live="polite">
-          {t(`announce.${announce.key}` as 'announce.he.flop', announce.params)}
+          {t(`announce.${announce.key}` as 'announce.he.flop', announceParams(view, announce.params))}
         </div>
       )}
 
@@ -293,6 +293,17 @@ export function HoldemHud({ ctx, director }: { ctx: TableContext; director: Hold
       </div>
     </>
   );
+}
+
+/** Engine announcements carry seats and minor units; the HUD shows names and formatted chips. */
+function announceParams(view: V | null, p?: Record<string, string | number>): Record<string, string | number> | undefined {
+  if (!p) return p;
+  const out: Record<string, string | number> = { ...p };
+  if (typeof p.seat === 'number') out.name = view?.seats[p.seat]?.name ?? '';
+  if (typeof p.amount === 'number') out.amount = formatMoney(p.amount);
+  if (typeof p.sb === 'number') out.sb = formatMoney(p.sb);
+  if (typeof p.bb === 'number') out.bb = formatMoney(p.bb);
+  return out;
 }
 
 function ShowdownLog({ view, results }: { view: V | null; results: { seat: SeatId; net: number; hand: number }[] }) {

@@ -169,6 +169,9 @@ export function reduceBlackjackView(v: BJView, ev: BJEvent): BJView {
       if (ev.phase !== 'play') v.turn = null;
       for (const s of v.seats) s.deadline = null;
       break;
+    case 'Paused':
+      v.paused = ev.paused;
+      break;
     case 'SeatJoined':
       v.seats.push(structuredCloneLite(ev.seat));
       break;

@@ -1,4 +1,4 @@
-import { Holdem, he, createRng, decideHoldem, type Money } from '@casino/engine';
+import { Holdem, he, createRng, decideHoldem, CHIP, type Money } from '@casino/engine';
 import { formatMoney, t } from '../../i18n';
 import { LocalSession, type LocalSeatSpec } from '../../session/LocalSession';
 import { profile, setWallet } from '../../session/wallet';
@@ -43,7 +43,8 @@ function makeDecider() {
 export function createHoldemLocal() {
   const setup = loadSetup('holdem');
   const [sb, bb] = setup.blinds;
-  const buyIn: Money = Math.min(setup.buyInBB * bb, profile.value.wallet);
+  // Whole chips, at least one big blind, never more than the wallet holds.
+  const buyIn: Money = Math.max(bb, Math.floor(Math.min(setup.buyInBB * bb, profile.value.wallet) / CHIP) * CHIP);
   const rules = he.holdemSinglePlayer({ sb, bb, buyIn: setup.buyInBB * bb, animScale: Number.isFinite(speedMult.value) ? 1 / speedMult.value : 0 });
   const names = BOT_NAMES.slice(0, setup.bots);
   const ps = personas(setup.style, setup.bots);
@@ -60,7 +61,9 @@ export function createHoldemLocal() {
     onState: (st: he.HState) => {
       const me = st.seats.find((s) => s?.player === 'me');
       if (!me) return;
-      setWallet(Math.max(0, offTable) + me.stack + me.street + me.committed);
+      // Chips committed to the pot still belong to the player until the hand is settled.
+      const live = st.phase === 'preflop' || st.phase === 'flop' || st.phase === 'turn' || st.phase === 'river';
+      setWallet(Math.max(0, offTable) + me.stack + me.street + (live ? me.committed : 0));
     },
   });
   // A rebuy brings another buy-in from the wallet.

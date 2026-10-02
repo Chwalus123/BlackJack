@@ -132,8 +132,8 @@ export class TableHost<M extends AnyModule> {
           this.botJobs.delete(seat);
           const r = this.dispatch(dec.action);
           if (!r.ok && r.error.code !== 'STALE_TURN') {
-            // Defensive: a bot must never stall the table.
-            this.dispatch({ type: 'STAND', seat, dId: legal.dId });
+            // Defensive: a bot must never stall the table — fall back to the most passive legal move.
+            for (const type of ['STAND', 'CHECK', 'FOLD', 'PASS']) if (this.dispatch({ type, seat }).ok) break;
           }
         });
       };

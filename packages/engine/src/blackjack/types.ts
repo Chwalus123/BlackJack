@@ -175,6 +175,7 @@ export type BJEvent =
   | ShuffleEvent
   | { e: 'RoundStarted'; round: number }
   | { e: 'Phase'; phase: BJPhase; deadline: number | null; paused: boolean }
+  | { e: 'Paused'; paused: boolean }
   | { e: 'SeatJoined'; seat: BJSeatView }
   | { e: 'SeatLeft'; seat: SeatId }
   | { e: 'SeatStatus'; seat: SeatId; status: SeatStatus; away: boolean; autoBet: boolean }

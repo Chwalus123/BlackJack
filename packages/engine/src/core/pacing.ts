@@ -55,7 +55,7 @@ export function animBudget(events: readonly EventLike[]): number {
       case 'DealerPeeked': total += PACING.peek; break;
       case 'HandSplit': total += PACING.split; break;
       case 'ChipsMoved': total += ev.reason === 'gather' ? PACING.gather : ev.reason === 'award' ? PACING.potPush : 120; break;
-      case 'Shuffle': total += PACING.reshuffle; break;
+      case 'Shuffle': total += ev.reason === 'newHand' ? PACING.reshuffle / 2.5 : PACING.reshuffle; break;
       case 'CardsCollected': total += PACING.sweep; break;
       case 'ButtonMoved': total += PACING.button; break;
       default: break;

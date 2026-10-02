@@ -76,14 +76,19 @@ export const holdemAdapter: GameAdapter = {
   minPlayers: 2,
   rules(s) {
     if (s.game !== 'holdem') throw new Error('settings/game mismatch');
-    return he.holdemMultiplayer({
-      sb: s.sb,
-      bb: s.bb,
-      buyInBB: s.buyInBB,
-      decisionMs: s.decisionSec * 1000,
-      rebuy: { mode: s.rebuy, max: null },
-      maxSeats: s.maxSeats,
-    });
+    // The buy-in is fixed, but a returning player brings back whatever they left with (room ledger).
+    return {
+      ...he.holdemMultiplayer({
+        sb: s.sb,
+        bb: s.bb,
+        buyInBB: s.buyInBB,
+        decisionMs: s.decisionSec * 1000,
+        rebuy: { mode: s.rebuy, max: null },
+        maxSeats: s.maxSeats,
+      }),
+      minBuyIn: s.bb,
+      maxBuyIn: Number.MAX_SAFE_INTEGER - (Number.MAX_SAFE_INTEGER % s.sb),
+    };
   },
   buyIn(s) {
     return s.game === 'holdem' ? s.bb * s.buyInBB : 0;

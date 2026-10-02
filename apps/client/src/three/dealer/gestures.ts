@@ -219,13 +219,9 @@ const safeCall = <A extends unknown[]>(fn: ((...a: A) => void) | undefined, ...a
 function handoffPoint(M: THREE.Vector3): THREE.Vector3 {
   const y = 0.1;
   const z = clamp(M.z, 0.26, 0.34);
-  const startX = Math.min(M.x - 0.1, 0.34);
-  for (let x = startX; x > -0.1; x -= 0.02) {
-    const H = v(x, y, z);
-    const qR = handQuat('R', v(0.8, 0, 1), 0.5);
-    const e = reachFor(-1, { x: H.x - 0.026, y: H.y, z: H.z }, { x: 0.8, y: 0, z: 1 }, 0.42);
-    if (e.choice.shortfall <= 0) return H;
-    void qR;
+  for (let x = Math.min(M.x - 0.1, 0.34); x > -0.1; x -= 0.02) {
+    const e = reachFor(-1, { x: x - 0.026, y, z }, { x: 0.8, y: 0, z: 1 }, 0.42, [0.5]);
+    if (e.choice.shortfall <= 0) return v(x, y, z);
   }
   return v(0.12, y, z);
 }

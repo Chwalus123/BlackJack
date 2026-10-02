@@ -800,6 +800,7 @@ function handle(ctx: Ctx, a: BJAction) {
     }
     case 'PAUSE': {
       st.paused = a.value;
+      emit(ctx, { e: 'Paused', paused: a.value });
       emit(ctx, { e: 'Announce', key: a.value ? 'table.paused' : 'table.resumed' });
       if (a.value && (st.phase === 'idle' || (st.phase === 'betting' && !st.seats.some(hasBet)))) {
         for (const s of st.seats) if (s.decided) {
@@ -828,6 +829,7 @@ function handle(ctx: Ctx, a: BJAction) {
       st.dealer = { cards: [], holeUp: false };
       emit(ctx, { e: 'CardsCollected', discards: st.shoe.discards.length });
       st.paused = true;
+      emit(ctx, { e: 'Paused', paused: true });
       setPhase(ctx, 'idle', null);
       return;
     }
