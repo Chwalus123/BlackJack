@@ -111,18 +111,18 @@ export const DIM = {
   hipsY: 0.12,
   /** spine1 sits 0.10 above the pelvis (y = 0.22): the forward lean pivots here. */
   spine1: 0.1,
-  spine2: 0.14,
-  chest: 0.14,
+  spine2: 0.13,
+  chest: 0.13,
   neck: vec(0, 0.2, -0.005),
   head: vec(0, 0.11, 0.012),
   /** Head centre above the head bone. */
   headCentre: 0.07,
   /** Clavicle root in chest space (x is mirrored per side). */
   clavicle: vec(0.025, 0.145, -0.008),
-  /** Shoulder joint in clavicle space (x mirrored). Shoulders land at (±0.19, 0.66, 0). */
+  /** Shoulder joint in clavicle space (x mirrored). Shoulders land at (±0.19, 0.64, 0). */
   shoulder: vec(0.165, 0.015, 0.008),
-  upperArm: 0.29,
-  forearm: 0.265,
+  upperArm: 0.295,
+  forearm: 0.27,
   palm: 0.09,
   /** Card-grip socket in hand space (+Y along the fingers, +Z back of the hand). Where a held card's centre sits. */
   grip: vec(0, 0.158, -0.036),
@@ -133,8 +133,8 @@ export const DIM = {
   elbowMinBend: 0,
   elbowMaxBend: 150 * DEG,
   /** Practical forward lean limits (radians) for placing on the felt and for pitching. */
-  maxPlaceLean: 30 * DEG,
-  maxPitchLean: 18 * DEG,
+  maxPlaceLean: 32 * DEG,
+  maxPitchLean: 22 * DEG,
 } as const;
 
 export const ARM_REACH = DIM.upperArm + DIM.forearm;
@@ -333,9 +333,13 @@ export interface PostureChoice {
 export const COMFORT = 0.975;
 
 function shortfallFor(reqs: readonly ReachRequest[], p: Posture): number {
+  const chest = chestFrame(p);
   let worst = -Infinity;
   for (const r of reqs) {
-    const sh = shoulderPosition(r.side, p, r.wrist);
+    const root = clavicleRoot(r.side, chest);
+    const angles = clavicleAngles(r.side, m3ApplyT(chest.rot, sub(r.wrist, root)));
+    const rot = m3Mul(chest.rot, clavicleRotation(r.side, angles));
+    const sh = add(root, m3Apply(rot, vec(DIM.shoulder.x * r.side, DIM.shoulder.y, DIM.shoulder.z)));
     worst = Math.max(worst, dist(sh, r.wrist) - ARM_REACH * COMFORT);
   }
   return worst;
@@ -347,13 +351,13 @@ function shortfallFor(reqs: readonly ReachRequest[], p: Posture): number {
  * does, the one that gets closest.
  */
 export function choosePosture(reqs: readonly ReachRequest[], maxLean: number = DIM.maxPlaceLean, baseLean = NEUTRAL_POSTURE.lean): PostureChoice {
-  if (reqs.length === 0) return { posture: { ...NEUTRAL_POSTURE }, shortfall: -Infinity };
+  const valid = reqs.filter((r) => finite(r.wrist));
+  if (valid.length === 0) return { posture: { ...NEUTRAL_POSTURE }, shortfall: -Infinity };
   let wx = 0;
   let wz = 0;
   let w = 0;
-  for (const r of reqs) {
+  for (const r of valid) {
     const k = r.weight ?? 1;
-    if (!finite(r.wrist)) continue;
     wx += r.wrist.x * k;
     wz += r.wrist.z * k;
     w += k;
@@ -363,16 +367,29 @@ export function choosePosture(reqs: readonly ReachRequest[], maxLean: number = D
   const twist = clamp(0.28 * Math.atan2(cx, Math.max(0.12, cz)), -0.2, 0.2);
   const side = clamp(0.2 * cx, -0.11, 0.11);
   maxLean = Math.max(baseLean, maxLean);
-  const steps = 18;
-  let best: PostureChoice | null = null;
-  for (let i = 0; i <= steps; i++) {
-    const lean = baseLean + ((maxLean - baseLean) * i) / steps;
+  const at = (lean: number): PostureChoice => {
     const posture = { lean, side, twist };
-    const shortfall = shortfallFor(reqs, posture);
-    if (shortfall <= 0) return { posture, shortfall };
-    if (!best || shortfall < best.shortfall - 1e-5) best = { posture, shortfall };
+    return { posture, shortfall: shortfallFor(valid, posture) };
+  };
+  const lo0 = at(baseLean);
+  if (lo0.shortfall <= 0) return lo0;
+  const hi0 = at(maxLean);
+  if (hi0.shortfall > 0) {
+    // Out of reach even fully leaned: take whichever end gets closer (leaning rarely hurts, but can for targets behind).
+    return hi0.shortfall <= lo0.shortfall ? hi0 : lo0;
   }
-  return best!;
+  let lo = baseLean;
+  let hi = maxLean;
+  let best = hi0;
+  for (let i = 0; i < 9; i++) {
+    const mid = (lo + hi) / 2;
+    const c = at(mid);
+    if (c.shortfall <= 0) {
+      best = c;
+      hi = mid;
+    } else lo = mid;
+  }
+  return best;
 }
 
 export interface DeliveryPlan {
@@ -448,7 +465,22 @@ export function reachFor(side: Side, grip: Vec3, heading: Vec3, maxLean: number,
  * allows) at hover height, release there, and let the card slide the rest of the way. Never throws; the
  * release point is always in front of the dealer, above the felt and within arm reach.
  */
+const planCache = new Map<string, DeliveryPlan>();
+const r4 = (n: number | undefined) => (n == null ? '-' : Math.round(n * 1e4));
+
 export function planDelivery(target: Vec3, side: Side, opts: DeliveryOptions = {}): DeliveryPlan {
+  const key = [target.x, target.y, target.z, side, opts.from?.x, opts.from?.y, opts.from?.z, opts.hover, opts.placeY, opts.maxTravel, opts.maxPlaceLean, opts.maxPitchLean, opts.pitchDown, opts.pitchOnly ? 1 : 0, opts.minFrontZ]
+    .map((n) => r4(n as number | undefined))
+    .join(',');
+  const hit = planCache.get(key);
+  if (hit) return hit;
+  const plan = planDeliveryUncached(target, side, opts);
+  if (planCache.size > 256) planCache.delete(planCache.keys().next().value!);
+  planCache.set(key, plan);
+  return plan;
+}
+
+function planDeliveryUncached(target: Vec3, side: Side, opts: DeliveryOptions): DeliveryPlan {
   const hover = Math.max(0.012, opts.hover ?? 0.03);
   const placeY = opts.placeY ?? 0.006;
   const minFrontZ = opts.minFrontZ ?? 0.16;
@@ -476,37 +508,48 @@ export function planDelivery(target: Vec3, side: Side, opts: DeliveryOptions = {
     return p;
   };
   const ok = (e: ReachEval) => e.choice.shortfall <= 0;
-  let y = hover;
+  // For a few release heights find the farthest reachable point on the line; prefer distance, but every
+  // centimetre of extra height costs a little so the card is let go low over the felt.
   let bestU = -1;
   let bestE: ReachEval | null = null;
-  for (let tries = 0; tries < 10 && bestU < 0; tries++) {
-    const N = 16;
-    let lastOk = -1;
-    for (let k = N; k >= 0; k--) {
-      const u = (maxU * k) / N;
-      const e = reachFor(side, pointAt(u, y), heading, maxLean, pitches);
+  let y = hover;
+  let bestScore = -Infinity;
+  for (let k = 0; k < 6; k++) {
+    const yk = hover + 0.025 * k;
+    const N = 10;
+    let found = -1;
+    let fe: ReachEval | null = null;
+    for (let i = N; i >= 0; i--) {
+      const u = (maxU * i) / N;
+      const e = reachFor(side, pointAt(u, yk), heading, maxLean, pitches);
       if (ok(e)) {
-        lastOk = k;
-        bestU = u;
-        bestE = e;
+        found = u;
+        fe = e;
+        if (i < N) {
+          let lo = u;
+          let hi = (maxU * (i + 1)) / N;
+          for (let r = 0; r < 9; r++) {
+            const mid = (lo + hi) / 2;
+            const em = reachFor(side, pointAt(mid, yk), heading, maxLean, pitches);
+            if (ok(em)) {
+              lo = mid;
+              fe = em;
+            } else hi = mid;
+          }
+          found = lo;
+        }
         break;
       }
     }
-    if (lastOk >= 0 && lastOk < N) {
-      // refine between lastOk and lastOk + 1
-      let lo = (maxU * lastOk) / N;
-      let hi = (maxU * (lastOk + 1)) / N;
-      for (let i = 0; i < 14; i++) {
-        const mid = (lo + hi) / 2;
-        const e = reachFor(side, pointAt(mid, y), heading, maxLean, pitches);
-        if (ok(e)) {
-          lo = mid;
-          bestE = e;
-        } else hi = mid;
-      }
-      bestU = lo;
+    if (found < 0) continue;
+    const score = found - 2.5 * (yk - hover);
+    if (score > bestScore) {
+      bestScore = score;
+      bestU = found;
+      bestE = fe;
+      y = yk;
     }
-    if (bestU < 0) y += 0.03; // nothing on the line is reachable at this height: lift the release
+    if (found >= maxU - 1e-6) break; // cannot do better by going higher
   }
   let release: Vec3;
   let e: ReachEval;

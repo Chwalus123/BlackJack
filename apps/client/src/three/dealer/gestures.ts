@@ -217,10 +217,10 @@ const safeCall = <A extends unknown[]>(fn: ((...a: A) => void) | undefined, ...a
 
 /** Point where the left hand passes a drawn card to the right: as close to the shoe as the right hand comfortably reaches. */
 function handoffPoint(M: THREE.Vector3): THREE.Vector3 {
-  const y = 0.1;
+  const y = 0.095;
   const z = clamp(M.z, 0.26, 0.34);
   for (let x = Math.min(M.x - 0.1, 0.34); x > -0.1; x -= 0.02) {
-    const e = reachFor(-1, { x: x - 0.026, y, z }, { x: 0.8, y: 0, z: 1 }, 0.42, [0.5]);
+    const e = reachFor(-1, { x: x - 0.026, y, z }, { x: 0.8, y: 0, z: 1 }, 0.27, [0.5]);
     if (e.choice.shortfall <= 0) return v(x, y, z);
   }
   return v(0.12, y, z);
@@ -284,12 +284,15 @@ export function buildDealFromShoe(shoeW: THREE.Vector3, targetW: THREE.Vector3, 
     R.f(tGrab + 0.04 * D, 'grip');
     const isBurn = mode === 'burn';
     const budget = Math.max(0.14, 2.6 * (tRel - tGrab));
+    // Pitches run along a lane in front of the right shoulder toward the spot; the hand goes as far as
+    // reach and time allow, lets go just above the felt and the card slides on.
+    const lane = v(clamp(T.x * 0.3, -0.15, 0.08), 0.035, 0.3);
     const plan = planDelivery({ x: T.x, y: T.y, z: T.z }, -1, {
-      from: { x: RH.x, y: RH.y, z: RH.z },
-      maxTravel: isBurn ? undefined : budget,
-      hover: isBurn ? 0.04 : 0.028,
+      from: isBurn ? { x: RH.x, y: RH.y, z: RH.z } : { x: lane.x, y: lane.y, z: lane.z },
+      maxTravel: isBurn ? undefined : Math.max(0.06, budget - 0.5 * flat(RH.clone().sub(lane)).length()),
+      hover: isBurn ? 0.04 : 0.035,
       placeY: isBurn ? 0.035 : 0.006,
-      maxPitchLean: 0.36,
+      maxPitchLean: 0.4,
       maxPlaceLean: DIM.maxPlaceLean,
     });
     const P = toV(plan.release);
