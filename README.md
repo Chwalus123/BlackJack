@@ -11,6 +11,13 @@ Casino-style **Blackjack** and **Texas Hold'em** in the browser, with a procedur
 
 > Gra wyłącznie dla zabawy. Żetony nie mają wartości pieniężnej. / For entertainment only. Chips have no monetary value.
 
+| Blackjack | Texas Hold'em |
+|---|---|
+| ![Blackjack table with the 3D dealer](docs/screenshots/blackjack.jpg) | ![Texas Hold'em table on the flop](docs/screenshots/holdem.jpg) |
+| ![Landing page](docs/screenshots/landing.jpg) | ![The procedural dealer in the gesture sandbox](docs/screenshots/dealer-sandbox.jpg) |
+
+<p align="center"><img src="docs/screenshots/mobile.jpg" alt="Blackjack on a phone" width="240"></p>
+
 ---
 
 ## Run it locally
@@ -48,9 +55,20 @@ Open **http://localhost:5173**.
 | `npm run lint` | ESLint (the engine forbids clocks, `Math.random` and host APIs) |
 | `npm run build` | Production build: `apps/client/dist` + bundled `apps/server/dist` |
 | `npm start` | Serves the built client and the multiplayer server on http://localhost:3000 |
-| `npm run load -- --bots 300` | Load smoke test: N socket bots at one table |
+| `npm run load -- --bots 300` | Load smoke test: N socket bots at one table (start the server with `CONNECTIONS_PER_IP=2000`) |
 
 In environments where Playwright's Chromium is preinstalled, set `PLAYWRIGHT_BROWSERS_PATH` before `npm run test:e2e`.
+
+The end-to-end suite builds the app, starts the server and covers:
+- the landing page and language switch;
+- phone layout;
+- a single-player Blackjack round and a single-player Hold'em hand;
+- a two-browser multiplayer Blackjack game;
+- a three-browser multiplayer Hold'em table, where the third player is queued.
+
+**The 3D dealer on his own:** open **http://localhost:5173/#/sandbox** to trigger every gesture (dealing, flip, peek, burn, sweep, chips, shuffle) at any speed, switch the badge language, and export the generated model as `jacbos-dealer.glb`.
+
+**Graphics quality:** *Settings → Graphics quality* has Automatic, High and Battery saver. Automatic picks Battery saver on touch devices; it drops shadows and uses lighter textures.
 
 ---
 
@@ -73,6 +91,13 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
    docker compose up -d --build
    ```
 4. Check it: `curl https://casino.example.com/healthz` should return `{"ok":true,…}`.
+
+**Measured on one machine** (server and all bot clients on the same host):
+
+| Test | Result |
+|---|---|
+| 300 bots at one Blackjack table, 5 rounds | 0 disconnects; ack p50 ≈ 100 ms, p95 ≈ 0.5 s; server ~100 MB |
+| 30 bots in Hold'em (22 seated, 8 queued) | 0 disconnects; ack p95 ≈ 3 ms |
 
 **Updating:**
 - Run `git pull && docker compose up -d --build`.
@@ -121,8 +146,12 @@ apps/client         Vite + Preact HUD over a Three.js scene: procedural table, c
   - Hole cards are sent only to their owner.
   - The deck, the shoe and the RNG state are never sent to anyone.
   - Card ids carry no information about the card.
+- **The dealer:**
+  - The croupier is built entirely in code from primitives, with no model files: about 4k triangles and a 39-bone rig.
+  - His arms are driven by two-bone IK. He hands cards from the shoe to his dealing hand, pitches them to far seats, holds the deck in Hold'em, flips, peeks, burns, sweeps and pushes chips.
 - **Animation:**
   - Every engine event (card dealt, card flipped, chips moved…) is choreographed by an animation director: the dealer's arm, card flights, flips and chip movements.
+  - Sounds are synthesised with WebAudio: no audio files.
   - Totals and results appear only when the animation shows them.
   - Speed is adjustable (0.5×–instant) and respects *reduced motion*.
 - **Original assets:**

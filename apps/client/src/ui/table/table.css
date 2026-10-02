@@ -69,7 +69,7 @@
 .announce {
   position: absolute;
   left: 50%;
-  top: 14%;
+  top: 31%;
   transform: translateX(-50%);
   z-index: 15;
   padding: 10px 26px;
