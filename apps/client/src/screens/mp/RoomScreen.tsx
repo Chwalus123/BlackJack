@@ -10,6 +10,33 @@ import { connection, nickname } from '../../session/RemoteSession';
 import { NicknameGate } from './NicknameGate';
 import type { RoomMeta } from '@casino/protocol';
 
+/** The Clipboard API needs HTTPS or localhost; on a plain-HTTP LAN address fall back to execCommand. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to the legacy path
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok: boolean;
+  try {
+    ok = document.execCommand('copy');
+  } catch {
+    ok = false;
+  }
+  ta.remove();
+  return ok;
+}
+
 function stakeInfo(m: RoomMeta): string {
   const s = m.settings;
   return s.game === 'blackjack' ? t('table.stake', { amount: formatMoney(s.stake) }) : `${formatMoney(s.sb)} / ${formatMoney(s.bb)}`;
@@ -153,7 +180,7 @@ function WaitingPanel({ meta, me, isHost, seated, queuePos, onClose }: { meta: R
         <button
           class="btn btn-lacquer btn-sm"
           onClick={() => {
-            void navigator.clipboard?.writeText(link).then(() => toast(t('mp.copied')));
+            void copyText(link).then((ok) => toast(ok ? t('mp.copied') : link));
           }}
         >
           <Icon name="copy" size={16} /> {t('mp.copy')}

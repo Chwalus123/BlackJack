@@ -8,9 +8,10 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    // Keep the browser's Host header so the server's same-origin check also passes for LAN devices.
     proxy: {
-      '/socket.io': { target: SERVER, ws: true, changeOrigin: true },
-      '/healthz': { target: SERVER, changeOrigin: true },
+      '/socket.io': { target: SERVER, ws: true },
+      '/healthz': { target: SERVER },
     },
   },
   preview: { port: 4173 },
