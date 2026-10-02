@@ -24,6 +24,11 @@ interface Member {
   wantsSeat: boolean;
 }
 
+/** Events after which any player's legal actions may have changed. */
+const COALESCE_ABOVE = 24;
+const COALESCE_MS = 100;
+const GLOBAL_EVENTS = new Set(['Phase', 'RoundStarted', 'TurnStarted', 'InsuranceOffered', 'Paused', 'SeatJoined', 'SeatLeft', 'CardsCollected']);
+
 export type RoomResult = { ok: true } | { ok: false; code: ErrorCode };
 const fail = (code: ErrorCode): RoomResult => ({ ok: false, code });
 const OK: RoomResult = { ok: true };
@@ -82,7 +87,8 @@ export class Room {
       scheduler: this.env.scheduler,
       entropy: this.env.entropy,
       onBatch: (b) => this.onBatch(b),
-      inPlace: false,
+      // Validate-then-mutate in place: no full-state copy per action (property-tested in the engine).
+      inPlace: true,
     });
     this.host.dispatch({ type: 'PAUSE', value: true });
     this.host.start();
@@ -90,10 +96,12 @@ export class Room {
 
   // ───────────── broadcasting ─────────────
 
+  private pending: { pub: unknown[]; priv: Reveal[] } | null = null;
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Engine output arrives here. Big tables coalesce batches (≈100 ms) to cut fan-out; small ones send at once. */
   private onBatch(b: Batch<any, any>): void {
     this.lastActivity = Date.now();
-    this.eid++;
-    const st = b.state;
     // Chips of seats that cashed out go to the room ledger so rejoining never resets anyone's chips.
     for (const ev of b.pub as { e: string; reason?: string; from?: { k: string; seat?: SeatId }; amount?: number; seat?: unknown }[]) {
       if (ev.e === 'ChipsMoved' && ev.reason === 'cashOut' && ev.from?.k === 'stack') {
@@ -105,14 +113,46 @@ export class Room {
         this.seatPlayer.set(sv.id, sv.player);
       }
     }
-    // Private reveals (own hole cards) and legal-action changes go first, then the public batch.
+    if (!this.pending) this.pending = { pub: [], priv: [] };
+    this.pending.pub.push(...b.pub);
+    this.pending.priv.push(...b.priv);
+    if (this.members.size <= COALESCE_ABOVE) this.flush();
+    else if (!this.flushTimer) this.flushTimer = setTimeout(() => this.flush(), COALESCE_MS);
+  }
+
+  /** Send everything accumulated since the last flush: private parts first, then one public batch. */
+  flush(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer);
+      this.flushTimer = null;
+    }
+    const batch = this.pending;
+    if (!batch || this.closed) return;
+    this.pending = null;
+    this.eid++;
+    const st = this.host.state;
+    const pub = batch.pub as Record<string, unknown>[];
     const byPlayer = new Map<string, Reveal[]>();
-    for (const r of b.priv) {
+    for (const r of batch.priv) {
       const p = this.adapter.playerOf(st, r.seat) ?? this.seatPlayer.get(r.seat);
       if (p) byPlayer.set(p, [...(byPlayer.get(p) ?? []), r]);
     }
+    // Legal actions only change for seats an event touches, unless the table-wide state moved on.
+    const global = this.game === 'holdem' || pub.some((e) => GLOBAL_EVENTS.has(e.e as string));
+    const touched = new Set<string>();
+    if (!global) {
+      for (const ev of pub) {
+        for (const v of [ev.seat, (ev.to as { seat?: number })?.seat, (ev.from as { seat?: number })?.seat]) {
+          if (typeof v === 'number') {
+            const p = this.adapter.playerOf(st, v) ?? this.seatPlayer.get(v);
+            if (p) touched.add(p);
+          }
+        }
+      }
+    }
     for (const [pid, member] of this.members) {
       if (!member.connected) continue;
+      if (!global && !touched.has(pid) && !byPlayer.has(pid)) continue;
       const seat = this.adapter.seatOf(st, pid);
       const legal = seat == null ? null : this.adapter.module.legal(st, seat);
       const key = JSON.stringify([seat, legal]);
@@ -122,11 +162,9 @@ export class Room {
         this.io.whisper(pid, { eid: this.eid, reveals, legal, you: seat });
       }
     }
-    this.io.publish(this.code, { eid: this.eid, pub: b.pub, serverNow: this.env.scheduler.now() });
-    for (const ev of b.pub as { e: string; seat?: SeatId }[]) {
-      if (ev.e === 'SeatLeft' && ev.seat != null) this.seatPlayer.delete(ev.seat);
-    }
-    if (b.pub.some((e: { e: string }) => e.e === 'SeatJoined' || e.e === 'SeatLeft' || e.e === 'Phase')) {
+    this.io.publish(this.code, { eid: this.eid, pub, serverNow: this.env.scheduler.now() });
+    for (const ev of pub) if (ev.e === 'SeatLeft' && typeof ev.seat === 'number') this.seatPlayer.delete(ev.seat);
+    if (pub.some((e) => e.e === 'SeatJoined' || e.e === 'SeatLeft' || e.e === 'Phase')) {
       this.updateStatusFromEngine();
       this.fillFromQueue();
       this.scheduleMeta();
@@ -184,6 +222,7 @@ export class Room {
   }
 
   snapshot(playerId: string | null): RoomSnapshot {
+    this.flush(); // the snapshot must not include events that have not been given an eid yet
     const st = this.host.state;
     const seat = playerId ? this.adapter.seatOf(st, playerId) : null;
     const m = this.adapter.module;
@@ -414,6 +453,7 @@ export class Room {
       this.io.kicked(m.id, reason);
     }
     if (this.metaTimer) clearTimeout(this.metaTimer);
+    if (this.flushTimer) clearTimeout(this.flushTimer);
     this.members.clear();
   }
 

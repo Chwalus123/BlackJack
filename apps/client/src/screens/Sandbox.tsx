@@ -94,7 +94,7 @@ function buildStage(host: HTMLElement): { api: Api; dispose: () => void } {
   const camera = new THREE.PerspectiveCamera(46, 1, 0.05, 30);
   camera.position.set(0, 0.58, 1.1);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, 0.32, -0.3);
+  controls.target.set(0, 0.36, -0.3);
   controls.enableDamping = true;
   controls.minDistance = 0.3;
   controls.maxDistance = 4;

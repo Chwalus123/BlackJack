@@ -10,7 +10,7 @@ export const FINGER_COUNT = 15;
 export type FingerPoseName = 'rest' | 'grip' | 'pinch' | 'press' | 'flat' | 'open' | 'tap' | 'cup' | 'deck' | 'push' | 'riffle';
 
 const POSES: Record<FingerPoseName, number[]> = {
-  rest: [16, 22, 2, 19, 25, 0, 23, 30, -2, 27, 32, -5, 14, 12, 14],
+  rest: [20, 30, 2, 24, 33, 0, 28, 37, -2, 32, 40, -5, 16, 10, 16],
   grip: [10, 20, 0, 12, 22, 0, 40, 58, -2, 48, 62, -4, 40, -14, 18],
   pinch: [20, 30, 0, 23, 33, 0, 42, 58, -2, 50, 64, -4, 44, -18, 20],
   press: [8, 14, 1, 9, 15, 0, 16, 24, -2, 22, 28, -4, 10, 16, 8],
@@ -86,7 +86,7 @@ export interface HandPose {
 export function neutralHand(h: HandName, deckInHand: boolean): HandPose {
   const s = sideOf(h);
   if (deckInHand && h === 'L') {
-    const rot = handQuat('L', new THREE.Vector3(-0.5, 0, 1), 0.22, 1.2);
+    const rot = handQuat('L', new THREE.Vector3(-0.45, 0, 1), 0.12, DECK_SUPINATION);
     return { pos: gripForDeck('L', DECK_HOLD.clone(), rot), rot, fingers: fingerPose('deck') };
   }
   if (deckInHand) {
@@ -96,6 +96,9 @@ export function neutralHand(h: HandName, deckInHand: boolean): HandPose {
   const rot = handQuat(h, new THREE.Vector3(-0.28 * s, 0, 1), 0.42, 0.06);
   return { pos: new THREE.Vector3(0.205 * s, 0.055, 0.3), rot, fingers: fingerPose('rest') };
 }
+
+/** Palm-up dealer's grip, tilted a little toward the right hand. */
+export const DECK_SUPINATION = 2.62;
 
 /** Where the Hold'em deck sits in the left hand at rest (rig space). */
 export const DECK_HOLD = new THREE.Vector3(0.19, 0.095, 0.265);

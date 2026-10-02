@@ -4,7 +4,7 @@ import { type HandName, sideOf } from './model';
 import {
   CONTACT,
   DECK_HOLD,
-  deckCentreLocal,
+  DECK_SUPINATION,
   fingerPose,
   gripForDeck,
   gripFromContact,
@@ -206,15 +206,6 @@ function finish(ctx: BuildCtx, L: HandKeys, R: HandKeys, body: BodyKeys, rest: P
   };
 }
 
-const safeCall = <A extends unknown[]>(fn: ((...a: A) => void) | undefined, ...args: A) => {
-  if (!fn) return;
-  try {
-    fn(...args);
-  } catch (err) {
-    console.error('[dealer] gesture callback failed', err);
-  }
-};
-
 /** Point where the left hand passes a drawn card to the right: as close to the shoe as the right hand comfortably reaches. */
 function handoffPoint(M: THREE.Vector3): THREE.Vector3 {
   const y = 0.095;
@@ -339,7 +330,7 @@ export function buildDealFromShoe(shoeW: THREE.Vector3, targetW: THREE.Vector3, 
     const events = [
       {
         t: tRel,
-        fire: () => safeCall(o.onRelease, ctx.gripWorld('R')),
+        fire: () => o.onRelease?.(ctx.gripWorld('R')),
       },
     ];
     return finish(ctx, L, R, body, {
@@ -359,12 +350,6 @@ export function buildDealFromShoe(shoeW: THREE.Vector3, targetW: THREE.Vector3, 
   };
 }
 
-/** Deck block centre (rig space) for the left hand in its current state. */
-function deckCentreFrom(snap: HandSnap): THREE.Vector3 {
-  const local = deckCentreLocal(1).sub(GRIP);
-  return local.applyQuaternion(snap.rot).add(snap.pos);
-}
-
 /** Hold'em: deck in the left hand, thumb pushes the top card, right hand takes it and pitches it. */
 export function buildDealFromHand(targetW: THREE.Vector3 | null, o: DealOpts, mode: 'deal' | 'burn' = 'deal'): Builder {
   return (ctx) => {
@@ -378,9 +363,9 @@ export function buildDealFromHand(targetW: THREE.Vector3 | null, o: DealOpts, mo
     // Left presents the deck, tilting it a touch toward the target, and thumbs the top card over.
     const nL = neutralHand('L', true);
     const aim = clamp(Math.atan2(T.x - DECK_HOLD.x, T.z - DECK_HOLD.z) * 0.12, -0.12, 0.12);
-    const holdQ = handQuat('L', v(-0.5, 0, 1).applyAxisAngle(v(0, 1, 0), aim), 0.22, 1.2);
+    const holdQ = handQuat('L', v(-0.45, 0, 1).applyAxisAngle(v(0, 1, 0), aim), 0.12, DECK_SUPINATION);
     const holdPos = gripForDeck('L', DECK_HOLD, holdQ);
-    const pushQ = handQuat('L', v(-0.5, 0, 1).applyAxisAngle(v(0, 1, 0), aim), 0.2, 1.05);
+    const pushQ = handQuat('L', v(-0.45, 0, 1).applyAxisAngle(v(0, 1, 0), aim), 0.1, DECK_SUPINATION - 0.18);
     L.key(0.1 * D, holdPos, holdQ, 'deck');
     L.f(0.18 * D, 'push').f(0.36 * D, 'deck');
     L.q(0.22 * D, pushQ).q(0.5 * D, holdQ);
@@ -445,7 +430,7 @@ export function buildDealFromHand(targetW: THREE.Vector3 | null, o: DealOpts, mo
         { t: 0, a: ctx.decks },
         { t: 0.1 * D, a: [1, 0] },
       ], 2),
-      events: [{ t: tRel, fire: () => safeCall(o.onRelease, ctx.gripWorld('R')) }],
+      events: [{ t: tRel, fire: () => o.onRelease?.(ctx.gripWorld('R')) }],
     });
   };
 }
@@ -470,10 +455,10 @@ export function buildFlip(atW: THREE.Vector3, o: { onFlip?: () => void }): Build
     const edge = A.clone().addScaledVector(dir, -0.04);
     edge.y = Math.max(0, A.y) + 0.004;
     const E = clampReach(h, gripFromContact(edge, qDown, CONTACT.pads), qDown);
-    const lift = red ? 0.035 : 0.065;
-    const up = E.clone().addScaledVector(dir, 0.03).add(v(0, lift, 0));
-    const qUp = handQuat(h, dir, -0.35, red ? 0.35 : 0.7);
-    const over = clampReach(h, gripFromContact(A.clone().addScaledVector(dir, 0.015).add(v(0, 0.012, 0)), qDown, CONTACT.palm), qDown);
+    const lift = red ? 0.035 : 0.06;
+    const up = E.clone().addScaledVector(dir, -0.012).add(v(0, lift, 0));
+    const qUp = handQuat(h, dir, -0.3, red ? 0.35 : 0.65);
+    const over = clampReach(h, gripFromContact(A.clone().addScaledVector(dir, -0.012).add(v(0, 0.012, 0)), qDown, CONTACT.palm), qDown);
     k.p(0.2 * D, E.clone().add(v(0, 0.05, 0)), 'auto').q(0.2 * D, qDown).f(0.2 * D, 'cup');
     k.key(0.34 * D, E, qDown, 'pinch');
     k.key(0.52 * D, up, qUp, undefined, 'auto');
@@ -482,14 +467,15 @@ export function buildFlip(atW: THREE.Vector3, o: { onFlip?: () => void }): Build
     k.p(0.78 * D, over.clone().add(v(0, -0.004, 0)), 'stop');
     relax(k, ctx, 0.78 * D, D);
     relax(other, ctx, 0, 0.7 * D, 0.01);
-    body.at(0.34 * D, postureFor([{ h, grip: E, q: qDown }], DIM.maxPlaceLean, red)).at(0.6 * D, postureFor([{ h, grip: up, q: qUp }], DIM.maxPlaceLean, red)).at(D, NEUTRAL_BODY);
+    const pf = postureFor([{ h, grip: E, q: qDown }, { h, grip: over, q: qDown }], DIM.maxPlaceLean, red);
+    body.at(0.3 * D, pf).at(0.74 * D, pf).at(D, NEUTRAL_BODY);
     return finish(ctx, keys.L, keys.R, body, {
       handoff: 0.9 * D,
       look: look([
         [0, A],
         [0.85 * D, null],
       ]),
-      events: [{ t: 0.52 * D, fire: () => safeCall(o.onFlip) }],
+      events: [{ t: 0.52 * D, fire: () => o.onFlip?.() }],
     });
   };
 }
@@ -568,7 +554,7 @@ export function buildSweep(fromW: THREE.Vector3[], toW: THREE.Vector3, o: { onGr
       }
       R.key(t, C, q, 'cup', 'auto');
       prevQ = q;
-      for (const idx of w.idx) events.push({ t, fire: () => safeCall(o.onGrab, idx) });
+      for (const idx of w.idx) events.push({ t, fire: () => o.onGrab?.(idx) });
       looks.push([Math.max(0, t - 0.1 * D), w.p]);
       body.at(t, postureFor([{ h: 'R', grip: C, q }], DIM.maxPlaceLean, red));
     });
@@ -630,7 +616,7 @@ export function buildPushChips(toW: THREE.Vector3, o: { onRelease?: () => void }
         [0, T],
         [0.9 * D, null],
       ]),
-      events: [{ t: 0.7 * D, fire: () => safeCall(o.onRelease) }],
+      events: [{ t: 0.7 * D, fire: () => o.onRelease?.() }],
     });
   };
 }
@@ -667,7 +653,7 @@ export function buildTakeChips(fromW: THREE.Vector3, o: { onGrab?: () => void })
         [0, F],
         [0.85 * D, null],
       ]),
-      events: [{ t: 0.4 * D, fire: () => safeCall(o.onGrab) }],
+      events: [{ t: 0.4 * D, fire: () => o.onGrab?.() }],
     });
   };
 }

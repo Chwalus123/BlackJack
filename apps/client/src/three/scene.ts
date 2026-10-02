@@ -189,7 +189,7 @@ export class TableScene {
     }
     this.renderer.render(this.scene, this.camera);
     for (const f of this.frameListeners) f();
-    const busy = this.tweens.busy || now < this.idleUntil;
+    const busy = this.tweens.busy || this.dealer.busy || now < this.idleUntil;
     // The high tier keeps a gentle idle loop so the dealer breathes; the low tier sleeps when idle.
     if (busy || this.quality === 'high') this.raf = requestAnimationFrame(this.loop);
     else this.running = false;

@@ -385,10 +385,24 @@ function randomPlay(seed: number, steps: number, mode: 'sp' | 'mp') {
     const d = Blackjack.nextDeadline(st);
     if (d != null) cands.push({ type: 'TIMEOUT', at: Math.max(at, d) });
     if (cands.length === 0) continue;
-    const a = cands[rnd(cands.length)]!;
+    let a = cands[rnd(cands.length)]!;
+    let fromLegal = true;
+    if (rnd(5) === 0) {
+      fromLegal = false;
+      // Throw in arbitrary (mostly illegal) actions to exercise every rejection path.
+      const types = ['HIT', 'STAND', 'DOUBLE', 'SPLIT', 'BET', 'CLEAR_BET', 'PASS', 'DEAL', 'INSURANCE', 'REBUY', 'SIT_IN', 'SIT_OUT', 'SET_AUTOBET'] as const;
+      a = { type: types[rnd(types.length)]!, at, seat: 1 + rnd(7), amount: rnd(3) * 250, take: rnd(2) === 0, value: rnd(2) === 0, dId: rnd(3) ? undefined : rnd(5) } as A;
+    }
+    const before = JSON.stringify(st);
     const r = applyBlackjack(st, a);
+    // In-place apply (used by the server) must give the same result and leave state untouched on rejection.
+    const twin = JSON.parse(before) as S;
+    const r2 = applyBlackjack(twin, a, { inPlace: true });
+    expect(r2.ok).toBe(r.ok);
+    if (!r.ok) expect(JSON.stringify(twin)).toBe(before);
+    else expect(JSON.stringify(twin)).toBe(JSON.stringify(r.state));
     if (!r.ok) {
-      if (a.type === 'HIT' || a.type === 'STAND' || a.type === 'DOUBLE' || a.type === 'SPLIT') throw new Error(`legal action rejected ${a.type} ${JSON.stringify(r.error)}`);
+      if (fromLegal && (a.type === 'HIT' || a.type === 'STAND' || a.type === 'DOUBLE' || a.type === 'SPLIT')) throw new Error(`legal action rejected ${a.type} ${JSON.stringify(r.error)}`);
       continue;
     }
     if (a.type === 'SIT') players++;

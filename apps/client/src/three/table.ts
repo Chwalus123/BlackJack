@@ -71,8 +71,9 @@ export function buildTable(kind: TableKind, feltCanvas: HTMLCanvasElement, quali
   felt.name = 'felt';
   group.add(felt);
 
-  // Rail (padded leather) along the players' edge; Hold'em rail runs all the way round.
-  const closed = kind === 'holdem';
+  // Rail (padded leather) along the players' edge. The outline's closing segment is the dealer's side, so an
+  // open rail leaves the dealer's cut-out on both tables; the felt, track and apron stay closed.
+  const closed = false;
   const railPts = offsetOutline(outline, 0.035, closed).map((p) => new THREE.Vector3(p.x, 0.022, p.z));
   const railCurve = new THREE.CatmullRomCurve3(railPts, closed, 'centripetal');
   const railMat = track(new THREE.MeshStandardMaterial({ color: COLORS.leather, roughness: 0.55, metalness: 0.05 }));
@@ -90,13 +91,14 @@ export function buildTable(kind: TableKind, feltCanvas: HTMLCanvasElement, quali
 
   // Wood track between felt and rail (a thin flat ribbon)
   const inner = outline;
-  const outer = offsetOutline(outline, 0.012, closed);
+  const loop = kind === 'holdem';
+  const outer = offsetOutline(outline, 0.012, loop);
   const woodGeo = new THREE.BufferGeometry();
   const verts: number[] = [];
   const idx: number[] = [];
   for (let i = 0; i < inner.length; i++) {
     verts.push(inner[i]!.x, 0.001, inner[i]!.z, outer[i]!.x, 0.001, outer[i]!.z);
-    if (i < inner.length - 1 || closed) {
+    if (i < inner.length - 1 || loop) {
       const a = i * 2;
       const b = ((i + 1) % inner.length) * 2;
       idx.push(a, b, a + 1, a + 1, b, b + 1);
@@ -110,7 +112,7 @@ export function buildTable(kind: TableKind, feltCanvas: HTMLCanvasElement, quali
   group.add(new THREE.Mesh(woodGeo, woodMat));
 
   // Apron / table body: extruded outline, black lacquer with a brass trim line.
-  const bodyShape = shapeFrom(offsetOutline(outline, 0.07, closed));
+  const bodyShape = shapeFrom(offsetOutline(outline, 0.07, loop));
   const bodyGeo = track(new THREE.ExtrudeGeometry(bodyShape, { depth: 0.09, bevelEnabled: true, bevelThickness: 0.01, bevelSize: 0.01, bevelSegments: 2, curveSegments: 24 }));
   bodyGeo.rotateX(-Math.PI / 2); // shape XY(−z) → XZ, extrusion depth → +Y …
   bodyGeo.translate(0, -0.102, 0); // … then sink it below the felt
@@ -119,8 +121,8 @@ export function buildTable(kind: TableKind, feltCanvas: HTMLCanvasElement, quali
   body.receiveShadow = true;
   group.add(body);
   const brass = track(new THREE.MeshStandardMaterial({ color: COLORS.gold500, roughness: 0.3, metalness: 0.9 }));
-  const trimPts = offsetOutline(outline, 0.081, closed).map((p) => new THREE.Vector3(p.x, -0.06, p.z));
-  const trim = new THREE.Mesh(track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trimPts, closed), 160, 0.0045, 6, closed)), brass);
+  const trimPts = offsetOutline(outline, 0.081, loop).map((p) => new THREE.Vector3(p.x, -0.06, p.z));
+  const trim = new THREE.Mesh(track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(trimPts, loop), 160, 0.0045, 6, loop)), brass);
   group.add(trim);
 
   // Pedestal and floor

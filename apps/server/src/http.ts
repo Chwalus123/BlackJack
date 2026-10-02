@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import fs from 'node:fs';
 import type { Config } from './config';
@@ -16,7 +16,8 @@ export async function buildHttp(cfg: Config, health: () => Health): Promise<Fast
     logger: cfg.LOG_LEVEL === 'silent' ? false : { level: cfg.LOG_LEVEL },
     trustProxy: cfg.trustProxy,
     bodyLimit: 16 * 1024,
-    disableRequestLogging: true,
+    // Per-request logs would be one line per static asset; game events are logged where they matter.
+    logController: new LogController({ disableRequestLogging: true }),
   });
   app.get('/healthz', async (_req, reply) => {
     const h = health();

@@ -8,7 +8,7 @@ export async function fastSettings(page: Page, opts: { locale?: 'pl' | 'en'; spe
         if (!sessionStorage.getItem('e2e-init')) {
           sessionStorage.setItem('e2e-init', '1');
           localStorage.clear();
-          localStorage.setItem('jacbos:v1:settings', JSON.stringify({ sound: false, speed, reducedMotion: 'off' }));
+          localStorage.setItem('jacbos:v1:settings', JSON.stringify({ sound: false, speed, reducedMotion: 'off', quality: 'low' }));
           localStorage.setItem('jacbos:v1:locale', JSON.stringify(locale));
         }
       } catch {

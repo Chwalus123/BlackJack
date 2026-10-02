@@ -104,6 +104,8 @@ export class DealerRuntime implements DealerRig {
   private deckInHand = false;
   private quality: Quality;
   private disposed = false;
+  /** Set once any gesture has been queued. */
+  private started = false;
   private flushing = 0;
   private readonly showHeldCards: boolean;
   private readonly rand = mulberry32(0x5eed1e);
@@ -146,6 +148,7 @@ export class DealerRuntime implements DealerRig {
     this.time += dt;
     if (!this.instant) this.clock += dt * this.speed;
     this.advance();
+    if (this.disposed) return; // a callback may have disposed the rig
     this.idle(dt);
     this.applyPose(dt);
   }
@@ -188,6 +191,18 @@ export class DealerRuntime implements DealerRig {
   setDeckInHand(visible: boolean): void {
     if (this.deckInHand === !!visible) return;
     this.deckInHand = !!visible;
+    if (!this.started && !this.active && this.queue.length === 0) {
+      // Fresh rig (e.g. right after the table is built): take the stance at once instead of animating into it.
+      for (const h of ['L', 'R'] as HandName[]) {
+        const n = neutralHand(h, this.deckInHand);
+        this.hands[h].pos.copy(n.pos);
+        this.hands[h].rot.copy(n.rot);
+        this.hands[h].fingers.set(n.fingers);
+      }
+      this.decks[0] = this.deckInHand ? 1 : 0;
+      this.applyPose(0);
+      return;
+    }
     this.lastEnd = Math.min(this.lastEnd, this.clock - 1); // let the settle start right away
   }
 
@@ -295,7 +310,10 @@ export class DealerRuntime implements DealerRig {
     const done = new Promise<void>((r) => (resolve = r));
     const ms = Number.isFinite(durationMs) && durationMs > 0 ? Math.max(40, durationMs) : fallbackMs;
     const job: Job = { name, builder, durationMs: ms, internal, enqueuedAt: this.clock, start: 0, built: null, nextEvent: 0, settled: false, resolve, fallback };
-    if (!internal) this.queue = this.queue.filter((j) => !j.internal);
+    if (!internal) {
+      this.queue = this.queue.filter((j) => !j.internal);
+      this.started = true;
+    }
     this.queue.push(job);
     if (this.instant && !internal) this.flush();
     return { done };
@@ -370,8 +388,13 @@ export class DealerRuntime implements DealerRig {
       const e = ev[job.nextEvent++]!;
       this.evaluate(job, e.t);
       this.applyPose(0);
-      e.fire();
-      if (job.settled) return;
+      try {
+        e.fire();
+      } catch (err) {
+        // A caller's callback must never stall the dealer's queue.
+        console.error(`[dealer] ${job.name} callback failed`, err);
+      }
+      if (job.settled || this.disposed) return;
     }
   }
 
@@ -618,7 +641,7 @@ export class DealerRuntime implements DealerRig {
       hd.rawPitch = Math.atan2(dir.y, Math.hypot(dir.x, dir.z));
       hd.tyaw = Math.max(-1.05, Math.min(1.05, hd.rawYaw));
       // the head only tips so far; the eyes do the rest when looking down at the felt
-      hd.tpitch = Math.max(-0.48, Math.min(0.32, Math.atan2(dir.y, Math.hypot(dir.x, dir.z)) * 0.85));
+      hd.tpitch = Math.max(-0.36, Math.min(0.3, hd.rawPitch * 0.75));
     }
     // critically damped spring, sub-stepped for stability
     const w = this.reduced ? 13 : 8.5;

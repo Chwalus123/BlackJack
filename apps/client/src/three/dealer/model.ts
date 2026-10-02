@@ -27,7 +27,7 @@ const PAL = {
   skin: '#8a5f47',
   skinShade: '#7a523d',
   lips: '#6e4437',
-  hair: '#120c09',
+  hair: '#140d09',
   brow: '#2a1c14',
   eye: '#140f0d',
   onyx: '#101012',
@@ -158,7 +158,10 @@ function gridGeo(rows: THREE.Vector3[][], capBottom = false, capTop = false): TH
   }
   const cap = (row: THREE.Vector3[], top: boolean) => {
     const c = row.reduce((acc, p) => acc.add(p), new THREE.Vector3()).divideScalar(row.length);
-    for (let j = 0; j < row.length - 1; j++) (top ? tri(c, row[j]!, row[j + 1]!) : tri(c, row[j + 1]!, row[j]!));
+    for (let j = 0; j < row.length - 1; j++) {
+      if (top) tri(c, row[j]!, row[j + 1]!);
+      else tri(c, row[j + 1]!, row[j]!);
+    }
   };
   if (capBottom) cap(rows[0]!, false);
   if (capTop) cap(rows[rows.length - 1]!, true);
@@ -209,7 +212,6 @@ function trisGeo(points: [number, number, number][], faces: [number, number, num
   return g;
 }
 
-const M = new THREE.Matrix4();
 const Q = new THREE.Quaternion();
 const E = new THREE.Euler();
 const V = new THREE.Vector3();
@@ -218,7 +220,8 @@ function place(x: number, y: number, z: number, rx = 0, ry = 0, rz = 0, sx = 1, 
   return new THREE.Matrix4().compose(V.set(x, y, z), Q.setFromEuler(E.set(rx, ry, rz, 'YXZ')), S.set(sx, sy, sz));
 }
 
-type MatKey = 'matte' | 'satin' | 'gold';
+type MatKey = 'matte' | 'satin' | 'gold' | 'hair';
+const MAT_KEYS: MatKey[] = ['matte', 'satin', 'gold', 'hair'];
 
 class Accumulator {
   readonly pos: number[] = [];
@@ -321,9 +324,9 @@ function torsoFront(y: number, x: number, grow = 0): { z: number; normal: THREE.
 
 /** Head profile rings relative to the head centre: [y, rx, rzFront, rzBack, cz]. */
 const HEAD_RINGS: [number, number, number, number, number][] = [
-  [-0.116, 0.027, 0.016, 0.012, 0.054],
-  [-0.099, 0.047, 0.03, 0.03, 0.041],
-  [-0.073, 0.062, 0.052, 0.048, 0.022],
+  [-0.109, 0.028, 0.016, 0.012, 0.052],
+  [-0.093, 0.048, 0.031, 0.03, 0.04],
+  [-0.069, 0.063, 0.053, 0.048, 0.021],
   [-0.041, 0.071, 0.074, 0.068, 0.009],
   [-0.008, 0.075, 0.086, 0.083, 0.003],
   [0.028, 0.076, 0.089, 0.09, 0],
@@ -473,13 +476,16 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
     matte: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.74, metalness: 0, flatShading: true, shadowSide: THREE.BackSide }),
     satin: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.05, flatShading: true, shadowSide: THREE.BackSide }),
     gold: new THREE.MeshStandardMaterial({ color: PAL.gold, roughness: 0.3, metalness: 0.85, emissive: '#2e2008', flatShading: true }),
+    // Slicked dark hair: a soft sheen from the lights but little environment reflection (keeps it from greying).
+    hair: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.48, metalness: 0, envMapIntensity: 0.18, flatShading: true, shadowSide: THREE.BackSide }),
   };
   materials.matte.name = 'dealer-matte';
   materials.satin.name = 'dealer-satin';
   materials.gold.name = 'dealer-gold';
+  materials.hair.name = 'dealer-hair';
 
   const skinned: Record<MatKey, THREE.SkinnedMesh> = {} as Record<MatKey, THREE.SkinnedMesh>;
-  for (const k of ['matte', 'satin', 'gold'] as MatKey[]) {
+  for (const k of MAT_KEYS) {
     const m = new THREE.SkinnedMesh(new THREE.BufferGeometry(), materials[k]);
     m.name = `dealer-${k}`;
     m.castShadow = true;
@@ -504,7 +510,7 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
     metalness: 0.35,
   });
   badgeMat.name = 'dealer-badge';
-  const BADGE = { x: 0.103, y: 0.497, w: 0.062, h: 0.0165 };
+  const BADGE = { x: 0.106, y: 0.497, w: 0.068, h: 0.0185 };
   const badgeFront = torsoFront(BADGE.y, BADGE.x, 0.007);
   const badgeYaw = Math.atan2(badgeFront.normal.x, badgeFront.normal.z);
   const badgeMesh = new THREE.Mesh(new THREE.PlaneGeometry(BADGE.w, BADGE.h), badgeMat);
@@ -522,7 +528,7 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
 
   function buildGeometry(q: Quality): void {
     const hi = q === 'high';
-    const acc: Record<MatKey, Accumulator> = { matte: new Accumulator(), satin: new Accumulator(), gold: new Accumulator() };
+    const acc: Record<MatKey, Accumulator> = { matte: new Accumulator(), satin: new Accumulator(), gold: new Accumulator(), hair: new Accumulator() };
     const ID = new THREE.Matrix4();
 
     // ── torso: shirt above the belt line, trousers below ──
@@ -645,10 +651,10 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
     acc.matte.add(
       loft(
         [
-          { y: -0.035, rx: 0.047, rzF: 0.05 },
-          { y: 0.03, rx: 0.045, rzF: 0.047 },
-          { y: 0.09, rx: 0.044, rzF: 0.046 },
-          { y: 0.135, rx: 0.042, rzF: 0.044 },
+          { y: -0.035, rx: 0.051, rzF: 0.053 },
+          { y: 0.03, rx: 0.049, rzF: 0.051 },
+          { y: 0.09, rx: 0.047, rzF: 0.049 },
+          { y: 0.135, rx: 0.044, rzF: 0.046 },
         ],
         hi ? 10 : 8,
         { capTop: true },
@@ -742,12 +748,12 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
       // brows (hair-coloured planes) and a quiet mouth line
       for (const s of [1, -1]) {
         const x = 0.031 * s;
-        acc.matte.add(new THREE.BoxGeometry(0.024, 0.0033, 0.004), color(PAL.brow), rigid(head), hm.clone().multiply(place(x, 0.0295, zf(0.0295, x) + 0.0012, 0.15, 0.38 * s, -0.1 * s)));
+        acc.hair.add(new THREE.BoxGeometry(0.024, 0.0034, 0.004), color(PAL.brow), rigid(head), hm.clone().multiply(place(x, 0.0298, zf(0.0298, x) + 0.0012, 0.15, 0.38 * s, -0.05 * s)));
       }
-      acc.matte.add(new THREE.BoxGeometry(0.024, 0.0022, 0.002), color(PAL.lips), rigid(head), hm.clone().multiply(place(0, -0.061, zf(-0.061, 0) + 0.0003)));
+      acc.matte.add(new THREE.BoxGeometry(0.024, 0.0022, 0.002), color(PAL.lips), rigid(head), hm.clone().multiply(place(0, -0.058, zf(-0.058, 0) + 0.0003)));
       // sideburns
       for (const s of [1, -1]) {
-        acc.matte.add(new THREE.BoxGeometry(0.006, 0.026, 0.013), color(PAL.hair), rigid(head), hm.clone().multiply(place(0.0712 * s, 0.012, 0.024, 0, 0.3 * s, 0)));
+        acc.hair.add(new THREE.BoxGeometry(0.006, 0.026, 0.013), color(PAL.hair), rigid(head), hm.clone().multiply(place(0.0712 * s, 0.012, 0.024, 0, 0.3 * s, 0)));
       }
       // eyes: small dark almonds on their own bones (they blink)
       for (const [eb, s] of [
@@ -795,37 +801,44 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
       };
       const rows: THREE.Vector3[][] = [];
       const surf = (a: number, y: number, t: number) => {
-        const r = headRingAt(Math.min(y, 0.118), t);
-        const p = ringPoint(r, a, HEAD_EXP);
-        if (y > 0.118) {
-          // dome over the crown
-          const k = smooth(0.118, HEAD_TOP + 0.004, y);
-          p.x *= 1 - 0.85 * k;
-          p.z = r.cz! + (p.z - r.cz!) * (1 - 0.85 * k);
-        }
-        p.y = y + (y > 0.09 ? t * 0.7 : 0);
+        const p = ringPoint(headRingAt(y, t), a, HEAD_EXP);
+        p.y = y + t * 0.6 * smooth(0.05, 0.11, y);
         return p;
       };
-      // inner lip row (on the skin) then outer rows up to the crown
+      // inner lip row (on the skin), side rows up the skull, then a flat crown ring and cap (no polar star)
       const lip: THREE.Vector3[] = [];
       for (let j = 0; j <= hs; j++) {
         const a = -Math.PI + (2 * Math.PI * j) / hs;
         lip.push(surf(a, hairline(a) - 0.0015, -0.0015));
       }
       rows.push(lip);
-      for (let r = 0; r <= rowsN; r++) {
+      const SIDE_TOP = 0.108;
+      for (let r = 0; r < rowsN; r++) {
         const row: THREE.Vector3[] = [];
         for (let j = 0; j <= hs; j++) {
           const a = -Math.PI + (2 * Math.PI * j) / hs;
           const y0 = hairline(a);
-          const u = Math.pow(r / rowsN, 0.85);
-          const y = y0 + (HEAD_TOP + 0.002 - y0) * u;
+          const u = Math.pow(r / (rowsN - 1), 0.9);
+          const y = y0 + (SIDE_TOP - y0) * u;
           // thin at the hairline, fuller above it — no visible "helmet" rim
           row.push(surf(a, y, thick(a, y) * (0.2 + 0.8 * smooth(0, 0.035, y - y0))));
         }
         rows.push(row);
       }
-      acc.matte.add(gridGeo(rows, false, true), color(PAL.hair), rigid(head), hm);
+      for (const [k, dy] of [
+        [0.66, 0.006],
+        [0.34, 0.0105],
+      ] as const) {
+        const crown: THREE.Vector3[] = [];
+        for (let j = 0; j <= hs; j++) {
+          const a = -Math.PI + (2 * Math.PI * j) / hs;
+          const r = headRingAt(0.114, thick(a, 0.114));
+          const p = ringPoint(r, a, HEAD_EXP);
+          crown.push(new THREE.Vector3(p.x * k, HEAD_TOP + dy, r.cz! + (p.z - r.cz!) * k - 0.002));
+        }
+        rows.push(crown);
+      }
+      acc.hair.add(gridGeo(rows, false, true), color(PAL.hair), rigid(head), hm);
     }
 
     // ── arms & hands ──
@@ -834,7 +847,7 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
       const s = A.side;
       const limbSegs = hi ? 9 : 7;
       // shoulder joint & upper sleeve
-      acc.matte.add(new THREE.IcosahedronGeometry(1, 1), color(PAL.shirt), rigid(A.upper), at(A.upper, place(0, 0.01, 0, 0, 0, 0, 0.051, 0.056, 0.05)));
+      acc.matte.add(new THREE.IcosahedronGeometry(1, 1), color(PAL.shirt), rigid(A.upper), at(A.upper, place(0, 0.012, 0, 0, 0, 0, 0.0495, 0.054, 0.049)));
       acc.matte.add(
         tube(
           [
@@ -1018,7 +1031,7 @@ export function buildDealerModel(quality: Quality, locale: 'pl' | 'en'): DealerM
       acc.matte.add(new THREE.PlaneGeometry(CARD_W - 0.008, CARD_H - 0.008), color(PAL.cardBack), rigid(c), at(c, place(0, 0, 0.00037)));
     }
 
-    for (const k of ['matte', 'satin', 'gold'] as MatKey[]) {
+    for (const k of MAT_KEYS) {
       const old = skinned[k].geometry;
       skinned[k].geometry = acc[k].build();
       old.dispose();
