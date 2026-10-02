@@ -1,0 +1,22 @@
+Jacbos Casino — third-party notices
+===================================
+
+All game art (cards, chips, felt, table, the 3D dealer), rules text and interface text are original
+work created for this project and generated in code. The project uses the following open-source
+software and fonts:
+
+Libraries (MIT License)
+  three.js            © 2010–2025 three.js authors                https://threejs.org
+  Preact              © 2015–present Jason Miller                 https://preactjs.com
+  @preact/signals     © 2022–present Preact Team                  https://github.com/preactjs/signals
+  Socket.IO (server and client)  © 2014–present Guillermo Rauch   https://socket.io
+  Fastify, @fastify/static       © 2016–present The Fastify Team  https://fastify.dev
+  pino                © 2016–present Matteo Collina et al.        https://getpino.io
+  zod                 © 2025 Colin McDonnell                      https://zod.dev
+
+Fonts (SIL Open Font License 1.1), self-hosted via the @fontsource-variable packages (MIT packaging)
+  Cinzel              © 2020 The Cinzel Project Authors (https://github.com/NDISCOVER/Cinzel)
+  Montserrat          © 2011 The Montserrat Project Authors (https://github.com/JulietaUla/Montserrat)
+
+The full license texts ship inside each package in node_modules (LICENSE files) and are
+available at the URLs above. The SIL Open Font License 1.1 is at https://openfontlicense.org.
