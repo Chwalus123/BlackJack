@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 import { CHIP, createRng, parseCards, he, Holdem } from '../src/index';
-import { checkHoldemInvariants, presetButton, rigHand } from '../src/holdem/testing';
+import { checkHoldemInvariants, rigHand } from '../src/holdem/testing';
 
 const { applyHoldem, createHoldem, legalHoldem, viewHoldem, holdemSinglePlayer, holdemMultiplayer, validateHoldemRules, buildPots, splitPot } = he;
 type S = he.HState;
@@ -94,6 +94,8 @@ describe('rules', () => {
     expect(validateHoldemRules({ ...T, maxSeats: 22 })).toEqual([]);
     expect(validateHoldemRules({ ...T, maxSeats: 23 })).not.toEqual([]);
     expect(validateHoldemRules({ ...T, maxSeats: 1 })).not.toEqual([]);
+    expect(validateHoldemRules({ ...T, animScale: 0 })).toEqual([]); // instant animations
+    expect(validateHoldemRules({ ...T, animScale: Infinity })).not.toEqual([]);
     expect(() => createHoldem({ ...T, maxSeats: 23 }, [1], 0)).toThrow();
     expect(holdemMultiplayer({ sb: $(1), bb: $(2), buyInBB: 100, decisionMs: 25000, rebuy: { mode: 'never', max: null } })).toMatchObject({
       maxSeats: 22, entry: 'postOrWait', buyIn: $(200), minBuyIn: $(200), maxBuyIn: $(200), autoSitOutAfterTimeouts: 2, rebuyWindowMs: 15000,
@@ -433,6 +435,7 @@ describe('betting', () => {
     const r: he.HoldemRules = { ...T, sb: $(2), bb: $(4) };
     let st = deal(table([100, 100, 1, 100], r), 0);
     st = play(st, '3 call', '0 fold', '1 fold');
+    expect(st.phase).toBe('results');
     expect(events.find((e) => e.e === 'UncalledReturned')).toMatchObject({ seat: 3, amount: $(2) });
     expect(events.find((e) => e.e === 'BetsGathered')).toEqual({ e: 'BetsGathered', pots: [{ amount: $(3), eligible: [2, 3] }, { amount: $(2), eligible: [3] }] });
   });
@@ -522,6 +525,7 @@ describe('pots', () => {
     let st = deal(table([100, 100, 100, 100]), 0, { 0: '2c 3d', 2: '2d 3h', 3: '2h 3s', 1: '4c 5d' }, 'Ts Jd Qh Kc Ac');
     st = play(st, '3 call', '0 call', '1 fold', '2 check');
     st = play(st, '2 check', '3 check', '0 check', '2 check', '3 check', '0 check', '2 check', '3 check', '0 check');
+    expect(st.phase).toBe('results');
     const award = events.find((e) => e.e === 'PotAwarded');
     expect(award).toMatchObject({ amount: $(7), winners: [{ seat: 2, amount: $(3) }, { seat: 3, amount: $(2) }, { seat: 0, amount: $(2) }] });
     expect(events.some((e) => e.e === 'Announce' && e.key === 'he.splitPot')).toBe(true);
@@ -569,6 +573,7 @@ describe('showdown', () => {
     st = play(st, '2 call', '0 allin', '1 call', '2 call');
     st = play(st, '1 check', '2 check', '1 check', '2 check');
     st = play(st, '1 bet 20', '2 call');
+    expect(st.phase).toBe('results');
     const sd = events.filter((e) => e.e === 'Shown' || e.e === 'Mucked').map((e) => `${e.e}:${(e as { seat: number }).seat}`);
     expect(sd).toEqual(['Shown:1', 'Mucked:2', 'Shown:0']);
     const awards = events.flatMap((e) => (e.e === 'PotAwarded' ? [[e.amount / CHIP, e.winners.map((w) => w.seat)]] : []));

@@ -103,6 +103,6 @@ export function validateHoldemRules(r: HoldemRules): string[] {
   if (r.rebuyWindowMs != null && !nonNegInt(r.rebuyWindowMs)) errs.push('bad rebuy window');
   if (!nonNegInt(r.autoSitOutAfterTimeouts)) errs.push('bad autoSitOutAfterTimeouts');
   if (r.rebuy.max != null && !nonNegInt(r.rebuy.max)) errs.push('bad rebuy max');
-  if (!(r.animScale > 0)) errs.push('animScale must be positive');
+  if (!(Number.isFinite(r.animScale) && r.animScale >= 0)) errs.push('animScale must be a finite number ≥ 0');
   return errs;
 }

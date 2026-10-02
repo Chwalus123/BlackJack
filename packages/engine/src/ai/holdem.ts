@@ -123,19 +123,20 @@ function postflop(v: HView, l: ActLegal, seat: SeatId, cfg: PersonaCfg, hole: Ca
   const fair = 1 / (nOpp + 1);
   const strength = (eq - fair) / (1 - fair); // 0 = an average hand, 1 = the nuts
   const pot = l.pot;
-  const size = () => Math.round(pot * (cfg.sizing[0] + nextFloat(rng) * (cfg.sizing[1] - cfg.sizing[0])));
+  const call = l.call ?? 0;
+  // Bet or raise by a persona-sized fraction of the pot after calling.
+  const size = () => Math.round((pot + call) * (cfg.sizing[0] + nextFloat(rng) * (cfg.sizing[1] - cfg.sizing[0])));
   const roll = nextFloat(rng);
   if (l.toCall === 0) {
     if (strength > 0.45 - 0.15 * cfg.aggr) return { k: 'raise', to: Math.max(v.rules.bb, size()) };
     if (roll < cfg.bluff * (nOpp === 1 ? 1.5 : 0.5)) return { k: 'raise', to: Math.max(v.rules.bb, size()) };
     return { k: 'check' };
   }
-  const call = l.call ?? 0;
   const potOdds = call / (pot + call);
   if (l.callIsAllIn || call >= me.stack * 0.6) return eq >= potOdds + 0.03 - cfg.loose ? { k: 'call' } : { k: 'fold' };
-  if (strength > 0.7 - 0.15 * cfg.aggr && (l.raise || l.bet)) return { k: 'raise', to: v.currentBet + size() + call };
+  if (strength > 0.7 - 0.15 * cfg.aggr && (l.raise || l.bet)) return { k: 'raise', to: v.currentBet + size() };
   if (eq >= potOdds - cfg.loose) return { k: 'call' };
-  if (v.phase !== 'river' && eq > 0.3 && roll < cfg.bluff) return { k: 'raise', to: v.currentBet + size() + call };
+  if (v.phase !== 'river' && eq > 0.3 && roll < cfg.bluff) return { k: 'raise', to: v.currentBet + size() };
   return { k: 'fold' };
 }
 

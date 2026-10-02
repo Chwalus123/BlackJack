@@ -4,7 +4,6 @@ import { CHIP, clone, he, Holdem, type Viewer } from '../src/index';
 import { checkHoldemInvariants } from '../src/holdem/testing';
 
 const { applyHoldem, createHoldem, legalHoldem, viewHoldem, reduceHoldemView, applyHoldemReveal, holdemMultiplayer, holdemSinglePlayer } = he;
-type S = he.HState;
 type A = he.HAction;
 
 export function diff(p: string, x: any, y: any): string[] {
@@ -89,6 +88,12 @@ export function randomHoldem({ seed, steps, mode, maxSeats }: PlayOpts) {
     const a = cands[rnd(cands.length)]!;
     const before = JSON.stringify(st);
     const r = applyHoldem(st, a);
+    if (!r.ok || i % 7 === 0) {
+      // in-place apply: same result, and a rejection leaves the state untouched
+      const draft = clone(st);
+      const r2 = applyHoldem(draft, a, { inPlace: true });
+      expect(JSON.stringify(r2.ok ? r2.state : draft)).toBe(r.ok ? JSON.stringify(r.state) : before);
+    }
     if (!r.ok) {
       expect(JSON.stringify(st)).toBe(before);
       continue;
