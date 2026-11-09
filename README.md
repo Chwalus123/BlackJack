@@ -120,6 +120,8 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
    curl http://127.0.0.1:3010/healthz       # {"ok":true,…}
    ```
    - If port 3010 is taken, set `CASINO_PORT` in `.env` and use that port in the commands below.
+   - Players behind one router share one address, and each address may hold 12 connections. For a bigger group playing from one place, set `CONNECTIONS_PER_IP` in `.env`.
+   - Building needs about 1 GB of free memory; on a smaller machine, add swap first.
    - Tailscale must run on the machine itself (not in a separate container), because it connects to the game at 127.0.0.1.
 2. See which ports Tailscale already publishes:
    ```bash

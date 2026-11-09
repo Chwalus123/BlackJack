@@ -15,6 +15,7 @@ services:
       - "127.0.0.1:${CASINO_PORT:-3010}:3000"
     environment:
       TRUST_PROXY: "1"
+      CONNECTIONS_PER_IP: ${CONNECTIONS_PER_IP:-12}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       MAX_PLAYERS_PER_ROOM: ${MAX_PLAYERS_PER_ROOM:-0}
       MAX_ROOMS: ${MAX_ROOMS:-200}
