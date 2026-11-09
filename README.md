@@ -122,7 +122,8 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
    - If port 3010 is taken, set `CASINO_PORT` in `.env` and use that port in the commands below.
    - Players behind one router share one address, and each address may hold 12 connections. For a bigger group playing from one place, set `CONNECTIONS_PER_IP` in `.env`.
    - Building needs about 1 GB of free memory; on a smaller machine, add swap first.
-   - Tailscale must run on the machine itself (not in a separate container), because it connects to the game at 127.0.0.1.
+   - Tailscale must be version 1.52 or newer (`tailscale version`); older versions use a different command syntax.
+   - Tailscale must run on the machine itself, or in a container with host networking, because it connects to the game at 127.0.0.1.
 2. See which ports Tailscale already publishes:
    ```bash
    tailscale serve status
@@ -147,7 +148,7 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
 
 **Logs:** `docker compose -f compose.tailscale.yml logs -f casino`.
 
-**Without Docker:** with Node 22 or newer, run `npm ci && npm run build`. Then run `NODE_ENV=production HOST=127.0.0.1 PORT=3010 TRUST_PROXY=1 npm start` under systemd or pm2, so it keeps running. Publish it as in steps 2–4.
+**Without Docker:** with Node 22 or newer, run `npm ci && npm run build`. Then run `NODE_ENV=production HOST=127.0.0.1 PORT=3010 TRUST_PROXY=1 npm start` under systemd or pm2, so it keeps running. Publish it as in steps 2–4. On Windows, run the `tailscale` commands in an Administrator terminal instead of using `sudo`.
 
 ### Configuration (environment variables)
 
