@@ -1,0 +1,22 @@
+{
+  "name": "@casino/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@casino/engine": "0.1.0",
+    "@casino/protocol": "0.1.0",
+    "@fontsource-variable/cinzel": "^5.2.8",
+    "@fontsource-variable/montserrat": "^5.2.8",
+    "@preact/signals": "^2.5.1",
+    "preact": "10.29.8",
+    "socket.io-client": "^4.8.3",
+    "three": "0.186.1"
+  }
+}
