@@ -1,0 +1,25 @@
+# Run the game on a machine in your Tailscale network, next to other apps, and publish it with Tailscale.
+#   docker compose -f compose.tailscale.yml up -d --build      → http://127.0.0.1:3010 on this machine only
+#   tailscale serve status                                     → which ports Tailscale already publishes
+#   sudo tailscale funnel --bg --https=8443 3010               → https://<machine>.<tailnet>.ts.net:8443 (public)
+#   sudo tailscale serve --bg --https=8443 3010                → the same, for devices in your tailnet only
+# Tailscale keeps the browser's Host header and sends each player's address in X-Forwarded-For,
+# so no domain or PUBLIC_ORIGIN is needed. Set CASINO_PORT in .env to use another local port.
+services:
+  casino:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CASINO_PORT:-3010}:3000"
+    environment:
+      TRUST_PROXY: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_PLAYERS_PER_ROOM: ${MAX_PLAYERS_PER_ROOM:-0}
+      MAX_ROOMS: ${MAX_ROOMS:-200}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    stop_grace_period: 30s

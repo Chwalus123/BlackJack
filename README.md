@@ -110,13 +110,40 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
 - Proxy it with nginx. WebSocket upgrades need `proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade";`.
 - Run exactly **one** Node process. Rooms live in memory.
 
+### On a machine in your Tailscale network
+
+[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) can publish the game from any always-on machine in your tailnet, next to other apps, with no domain and no open ports. Tailscale keeps the browser's `Host` header and sends each player's address in `X-Forwarded-For`, so the game needs no extra settings.
+
+1. On that machine (with Docker and Tailscale installed), clone this repository and start the game on local port 3010:
+   ```bash
+   docker compose -f compose.tailscale.yml up -d --build
+   curl http://127.0.0.1:3010/healthz       # {"ok":true,…}
+   ```
+2. See which ports Tailscale already publishes. Publishing on a port that another app uses would replace that app.
+   ```bash
+   tailscale serve status
+   ```
+3. Publish the game. Funnel allows ports 443, 8443 and 10000; 8443 keeps 443 free for other apps.
+   ```bash
+   sudo tailscale funnel --bg --https=8443 3010    # public: https://<machine>.<tailnet>.ts.net:8443
+   sudo tailscale serve --bg --https=8443 3010     # or only for devices in your tailnet
+   ```
+   - The first time, the command prints a link to turn on HTTPS certificates and Funnel for your tailnet.
+   - `--bg` keeps it published after you close the terminal.
+   - Publish it at the root of its address, not under a path (`--set-path`).
+4. `tailscale funnel status` shows the address. `sudo tailscale funnel --https=8443 off` stops publishing the game. `tailscale funnel reset` would also remove every other app's Serve and Funnel entries.
+
+**Updating:** `git pull && docker compose -f compose.tailscale.yml up -d --build`.
+
+**Without Docker:** run `npm ci && npm run build`, then `NODE_ENV=production HOST=127.0.0.1 PORT=3010 TRUST_PROXY=1 npm start`, and publish it as in steps 2–4.
+
 ### Configuration (environment variables)
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | Listen address |
 | `PUBLIC_ORIGIN` | – | Allowed browser origin (e.g. `https://casino.example.com`); same-origin is always allowed |
-| `TRUST_PROXY` | `0` | `1` when behind Caddy/nginx (uses `X-Forwarded-For` for per-IP limits) |
+| `TRUST_PROXY` | `0` | `1` when behind Caddy, nginx or Tailscale Serve/Funnel (uses `X-Forwarded-For` for per-IP limits) |
 | `STATIC_DIR` | `apps/client/dist` | Built client to serve |
 | `MAX_ROOMS` | `200` | Open tables at once |
 | `MAX_PLAYERS_PER_ROOM` | `0` | Blackjack seat cap; `0` = unlimited |
