@@ -5,6 +5,8 @@
 #   sudo tailscale serve --bg --https=8443 3010                → the same, for devices in your tailnet only
 # Tailscale keeps the browser's Host header and sends each player's address in X-Forwarded-For,
 # so no domain or PUBLIC_ORIGIN is needed. Set CASINO_PORT in .env to use another local port.
+# Its own project name keeps it apart from the other compose files in this checkout.
+name: casino-tailscale
 services:
   casino:
     build: .

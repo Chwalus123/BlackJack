@@ -112,30 +112,40 @@ The bundled `docker-compose.yml` runs the game behind **Caddy**, which gets HTTP
 
 ### On a machine in your Tailscale network
 
-[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) can publish the game from any always-on machine in your tailnet, next to other apps, with no domain and no open ports. Tailscale keeps the browser's `Host` header and sends each player's address in `X-Forwarded-For`, so the game needs no extra settings.
+[Tailscale Funnel](https://tailscale.com/kb/1223/funnel) can publish the game from any always-on machine in your tailnet, next to other apps, with no domain and no open ports. Tailscale keeps the browser's `Host` header and sends each player's address in `X-Forwarded-For`, so the game needs no domain or `PUBLIC_ORIGIN`. `compose.tailscale.yml` sets `TRUST_PROXY=1`, so per-player limits use that address.
 
-1. On that machine (with Docker and Tailscale installed), clone this repository and start the game on local port 3010:
+1. On that machine, with Docker and Tailscale installed directly on it, clone this repository and start the game on local port 3010:
    ```bash
    docker compose -f compose.tailscale.yml up -d --build
    curl http://127.0.0.1:3010/healthz       # {"ok":true,…}
    ```
-2. See which ports Tailscale already publishes. Publishing on a port that another app uses would replace that app.
+   - If port 3010 is taken, set `CASINO_PORT` in `.env` and use that port in the commands below.
+   - Tailscale must run on the machine itself (not in a separate container), because it connects to the game at 127.0.0.1.
+2. See which ports Tailscale already publishes:
    ```bash
    tailscale serve status
    ```
-3. Publish the game. Funnel allows ports 443, 8443 and 10000; 8443 keeps 443 free for other apps.
+   - Publishing on a port that another app already uses replaces that app without asking, and Funnel applies to the whole port.
+   - The list shows only entries saved with `--bg`.
+3. Publish the game on port 8443, which keeps 443 free for other apps:
    ```bash
    sudo tailscale funnel --bg --https=8443 3010    # public: https://<machine>.<tailnet>.ts.net:8443
    sudo tailscale serve --bg --https=8443 3010     # or only for devices in your tailnet
    ```
-   - The first time, the command prints a link to turn on HTTPS certificates and Funnel for your tailnet.
-   - `--bg` keeps it published after you close the terminal.
+   - Funnel works only on ports 443, 8443 and 10000. The command accepts other ports, but they are not reachable from the internet.
+   - If HTTPS certificates or Funnel are not turned on for your tailnet yet, the command prints a link to turn them on. If it exits after printing the link, run it again.
+   - `--bg` keeps it published after you close the terminal and across restarts.
    - Publish it at the root of its address, not under a path (`--set-path`).
-4. `tailscale funnel status` shows the address. `sudo tailscale funnel --https=8443 off` stops publishing the game. `tailscale funnel reset` would also remove every other app's Serve and Funnel entries.
+4. Manage it:
+   - `tailscale funnel status` shows the address.
+   - `sudo tailscale serve --https=8443 off` stops publishing the game, whether you used `funnel` or `serve`.
+   - Don't use `tailscale funnel reset` for this: it also removes every other app's Serve and Funnel entries.
 
 **Updating:** `git pull && docker compose -f compose.tailscale.yml up -d --build`.
 
-**Without Docker:** run `npm ci && npm run build`, then `NODE_ENV=production HOST=127.0.0.1 PORT=3010 TRUST_PROXY=1 npm start`, and publish it as in steps 2–4.
+**Logs:** `docker compose -f compose.tailscale.yml logs -f casino`.
+
+**Without Docker:** with Node 22 or newer, run `npm ci && npm run build`. Then run `NODE_ENV=production HOST=127.0.0.1 PORT=3010 TRUST_PROXY=1 npm start` under systemd or pm2, so it keeps running. Publish it as in steps 2–4.
 
 ### Configuration (environment variables)
 
